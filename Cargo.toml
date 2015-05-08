@@ -1,0 +1,16 @@
+[package]
+name = "engine"
+version = "0.1.0"
+authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
+
+[dependencies.pistoncore-window]
+git = "https://github.com/PistonDevelopers/window"
+
+[dependencies.glutin]
+git = "https://github.com/tomaka/glutin"
+
+[dependencies.snowstorm]
+git = "https://github.com/csherratt/snowstorm.git"
+
+[dependencies.fibe]
+git = "https://github.com/kvark/fibe-rs.git"
