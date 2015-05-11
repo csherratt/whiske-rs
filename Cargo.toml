@@ -1,16 +1,25 @@
 [package]
-name = "engine"
+name = "snowmew-engine"
 version = "0.1.0"
 authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
 
-[dependencies.pistoncore-window]
-git = "https://github.com/PistonDevelopers/window"
+[lib]
+name = "engine"
 
-[dependencies.glutin]
-git = "https://github.com/tomaka/glutin"
+[dependencies.piston]
+git = "https://github.com/PistonDevelopers/piston"
+
+#[dependencies.piston_window]
+#git = "https://github.com/PistonDevelopers/piston_window"
 
 [dependencies.snowstorm]
 git = "https://github.com/csherratt/snowstorm.git"
 
 [dependencies.fibe]
 git = "https://github.com/kvark/fibe-rs.git"
+
+[dependencies.pistoncore-glutin_window]
+git = "https://github.com/PistonDevelopers/glutin_window.git"
+
+[dependencies.pistoncore-input]
+git = "https://github.com/PistonDevelopers/input"

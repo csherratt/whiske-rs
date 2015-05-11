@@ -1,13 +1,17 @@
-extern crate glutin;
+extern crate piston;
+extern crate glutin_window;
 extern crate fibe;
 extern crate snowstorm;
+extern crate input;
 
 use fibe::*;
+use piston::window::{Window, WindowSettings};
+use glutin_window::{GlutinWindow, OpenGL};
 
 pub use snowstorm::channel::*;
 
 pub struct Engine {
-    input: (Sender<glutin::Event>, Receiver<glutin::Event>),
+    input: (Sender<input::Input>, Receiver<input::Input>),
     pool: fibe::Frontend
 }
 
@@ -20,8 +24,9 @@ impl Engine {
         }
     }
 
-    /// Fetch a copy of the input stream
-    pub fn start_input_processor<F>(&mut self, actor: F) where F: FnOnce(&mut fibe::Schedule, Receiver<glutin::Event>)+Send+'static {
+    /// Fetch a copy of the input stream and run actor
+    /// with the input stream as a input
+    pub fn start_input_processor<F>(&mut self, actor: F) where F: FnOnce(&mut fibe::Schedule, Receiver<input::Input>)+Send+'static {
         let rx = self.input.1.clone();
         task(|sched| {
             actor(sched, rx);
@@ -29,23 +34,21 @@ impl Engine {
     }
 
     /// run the engine
-    pub fn run<F>(mut self, mut render: F) where F: FnMut(&mut fibe::Schedule, &glutin::Window) {
-        let window = glutin::WindowBuilder::new()
-            .with_title("Demo".to_string())
-            .with_vsync()
-            .with_gl(glutin::GlRequest::Specific(glutin::Api::OpenGl, (3, 2)))
-            .with_srgb(Some(true))
-            .build().unwrap();
+    pub fn run<F>(mut self, mut render: F) where F: FnMut(&mut fibe::Schedule, &mut GlutinWindow) {
+        let mut window = GlutinWindow::new(
+            OpenGL::_3_2,
+            WindowSettings::new("snowmew", [640, 480])
+        );
 
         let (mut send, recv)  = self.input;
         drop(recv);
 
-        'main: loop {
-            for event in window.poll_events() {
+        'main: while !window.should_close() {
+            while let Some(event) = Window::poll_event(&mut window) {
                 send.send(event);
             }
             send.next_frame();
-            render(&mut self.pool, &window);
+            render(&mut self.pool, &mut window);
         }
     }
 }
