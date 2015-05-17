@@ -11,7 +11,7 @@ use entity::*;
 use parent::{parent, Parent};
 use fibe::*;
 use snowstorm::channel::*;
-use cgmath::{Matrix4, Matrix};
+use cgmath::*;
 
 struct PositionSystem {
     // Inputs
@@ -31,7 +31,7 @@ struct PositionSystem {
     // All entities that need to be updated 
     dirty: HashSet<Entity>,
 
-    deltas: HashMap<Entity, Matrix4<f32>>,
+    deltas: HashMap<Entity, Decomposed<f32, Vector3<f32>, Quaternion<f32>>>,
 }
 
 // Recursively adds all eid + all children of eid to the dirty set
@@ -105,7 +105,13 @@ impl PositionSystem {
             .map(|&parent| self.solve(parent))
             .unwrap_or_else(|| Matrix4::identity());
 
-        parent.mul_m(self.deltas.get(&eid).expect("Expected delta, but none found"))
+        let mat: Matrix4<f32> =
+            self.deltas.get(&eid)
+                       .map(|x| *x)
+                       .expect("Expected delta, but none found")
+                       .into();
+
+        parent.mul_m(&mat)
     }
 
 
@@ -114,12 +120,13 @@ impl PositionSystem {
             let solved = self.solve(*dirty);
             dirty.bind(Solved(solved)).write(&mut self.output);
         }
+        self.dirty.clear();
     }
 }
 
 
 #[derive(Debug, Clone, Copy)]
-pub struct Delta(pub Matrix4<f32>);
+pub struct Delta(pub Decomposed<f32, Vector3<f32>, Quaternion<f32>>);
 #[derive(Debug, Clone, Copy)]
 pub struct Solved(pub Matrix4<f32>);
 
