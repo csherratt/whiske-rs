@@ -15,14 +15,14 @@ use cgmath::*;
 
 struct PositionSystem {
     // Inputs
-    delta: Receiver<Operation<Delta>>,
+    delta: Receiver<Operation<Entity, Delta>>,
     parent: Receiver<parent::Message>,
 
     // input select
     select: SelectMap<fn (&mut PositionSystem) -> Option<Signal>>,
 
     // output
-    output: Sender<Operation<Solved>>,
+    output: Sender<Operation<Entity, Solved>>,
 
     // child mappings
     child_to_parent: HashMap<Entity, Entity>,
@@ -131,8 +131,8 @@ pub struct Delta(pub Decomposed<f32, Vector3<f32>, Quaternion<f32>>);
 pub struct Solved(pub Matrix4<f32>);
 
 pub fn position(sched: &mut Schedule,
-                delta: Receiver<Operation<Delta>>,
-                parent: Receiver<parent::Message>) -> Receiver<Operation<Solved>> {
+                delta: Receiver<Operation<Entity, Delta>>,
+                parent: Receiver<parent::Message>) -> Receiver<Operation<Entity, Solved>> {
 
     let (tx, output) = channel();
 

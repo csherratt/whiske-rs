@@ -15,7 +15,7 @@ use cgmath::*;
 
 fn setup() -> (Frontend,
                Sink,
-               Receiver<Operation<Solved>>) {
+               Receiver<Operation<Entity, Solved>>) {
 
     let mut sched = Frontend::new();
 
@@ -30,7 +30,7 @@ fn setup() -> (Frontend,
 
 struct Sink {
     parent: Sender<parent::Message>,
-    position: Sender<Operation<Delta>>
+    position: Sender<Operation<Entity, Delta>>
 }
 
 impl Sink {
@@ -40,13 +40,13 @@ impl Sink {
     }
 }
 
-impl WriteEntity<Delta> for Sink {
+impl WriteEntity<Entity, Delta> for Sink {
     fn write(&mut self, eid: Entity, delta: Delta) {
         self.position.send(Operation::Upsert(eid, delta));
     }
 }
 
-impl WriteEntity<Parent> for Sink {
+impl WriteEntity<Entity, Parent> for Sink {
     fn write(&mut self, eid: Entity, parent: Parent) {
         self.parent.send(Operation::Upsert(eid, parent));
     }
@@ -136,14 +136,14 @@ fn children_tree() {
 
 #[test]
 fn exit() {
-    let (front, mut sink, mut solved) = setup();
+    let (front, sink, mut solved) = setup();
     drop(sink);
 
     assert_eq!(ReceiverError::ChannelClosed, solved.recv().err().unwrap());
     drop(front);
 }
 
-fn count(rx: &mut Receiver<Operation<Solved>>) -> usize {
+fn count(rx: &mut Receiver<Operation<Entity, Solved>>) -> usize {
     let mut count = 0;
     while let Ok(_) = rx.recv() {
         count += 1;
