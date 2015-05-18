@@ -8,7 +8,7 @@ use snowstorm::channel::*;
 use entity::{Entity, WriteEntity, Operation};
 
 
-pub type Message = Operation<Parent>;
+pub type Message = Operation<Entity, Parent>;
 
 struct ParentSystem {
     input: Receiver<Message>,
@@ -58,7 +58,7 @@ impl ParentSystem {
         self.output.send(Operation::Delete(eid));
     }
 
-    fn write(&mut self, op: Operation<Parent>) {
+    fn write(&mut self, op: Operation<Entity, Parent>) {
         match op {
             Operation::Delete(eid) => self.delete(eid),
             Operation::Upsert(eid, Parent::Root) => {
