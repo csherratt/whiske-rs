@@ -8,7 +8,10 @@ extern crate gfx;
 
 use std::iter::FromIterator;
 use entity::*;
-use snowstorm::channel::*;
+use snowstorm::mpsc::*;
+pub use material::*;
+
+pub mod material;
 
 /// This holds the binding between a geometry and the material
 /// for a drawable entity
@@ -19,13 +22,14 @@ pub struct DrawBinding(Geometry, Material);
 #[derive(Copy, Clone, Hash, Debug)]
 pub struct Geometry(Entity);
 
-/// A Material entity
-#[derive(Copy, Clone, Hash, Debug)]
-pub struct Material(Entity);
 
 /// A handle for a vertex buffer
 #[derive(Copy, Clone, Hash, Debug)]
-pub struct VertexBuffer(Entity, Length);
+pub struct VertexBuffer(pub Entity, Length);
+
+/// A handle for a texture
+#[derive(Copy, Clone, Hash, Debug)]
+pub struct Texture(pub Entity);
 
 #[derive(Copy, Clone, Hash, Debug)]
 pub enum Length {
@@ -293,7 +297,8 @@ pub enum VertexData {
 
 #[derive(Clone, Debug)]
 pub enum Message {
-    Vertex(Operation<Entity, VertexData>)
+    Vertex(Operation<Entity, VertexData>),
+    Material(Operation<Entity, MaterialComponent>)
 }
 
 #[derive(Clone)]
@@ -324,6 +329,14 @@ impl WriteEntity<VertexBuffer, Vec<u32>> for GraphicsSource {
     fn write(&mut self, entity: VertexBuffer, data: Vec<u32>) {
         self.0.send(Message::Vertex(
             Operation::Upsert(entity.0, VertexData::Index(data))
+        ))
+    }
+}
+
+impl WriteEntity<Material, MaterialComponent> for GraphicsSource {
+    fn write(&mut self, entity: Material, data: MaterialComponent) {
+        self.0.send(Message::Material(
+            Operation::Upsert(entity.0, data)
         ))
     }
 }

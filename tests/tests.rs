@@ -21,3 +21,17 @@ fn create_vb() {
     drop(source);
     drop(sink);
 }
+
+#[test]
+fn material_bind() {
+    let (sink, mut source) = GraphicsSource::new();
+
+    let _ = Material::new()
+        .bind(KaFlat([1., 2., 3.]))
+        .bind(KdFlat([1., 2., 3.]))
+        .bind(KsFlat([1., 2., 3.]))
+        .write(&mut source);
+
+    drop(source);
+    drop(sink);
+}
