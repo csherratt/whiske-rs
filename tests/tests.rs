@@ -1,7 +1,9 @@
 
+extern crate entity;
 extern crate graphics;
 
 use graphics::*;
+use entity::*;
 
 #[test]
 fn create_vb() {
@@ -34,4 +36,44 @@ fn material_bind() {
 
     drop(source);
     drop(sink);
+}
+
+#[test]
+fn geometry() {
+    let (sink, mut source) = GraphicsSource::new();
+
+    let vb = VertexBuffer::new()
+        .bind((0..100).map(|_| VertexPos{position: [0., 0., 0.]}).collect())
+        .write(&mut source);
+
+    let geo = Geometry::new()
+        .bind(vb.geometry(Primative::Triangle))
+        .write(&mut source);
+
+    drop((vb, sink, source, geo));
+}
+
+#[test]
+fn draw_bind() {
+    let (sink, mut source) = GraphicsSource::new();
+
+    let vb = VertexBuffer::new()
+        .bind((0..100).map(|_| VertexPos{position: [0., 0., 0.]}).collect())
+        .write(&mut source);
+
+    let geo = Geometry::new()
+        .bind(vb.geometry(Primative::Triangle))
+        .write(&mut source);
+
+    let mat = Material::new()
+        .bind(KaFlat([1., 2., 3.]))
+        .bind(KdFlat([1., 2., 3.]))
+        .bind(KsFlat([1., 2., 3.]))
+        .write(&mut source);
+
+    let eid = Entity::new()
+        .bind(DrawBinding(geo, mat))
+        .write(&mut source);
+
+    drop((source, sink, eid));
 }

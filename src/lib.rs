@@ -16,7 +16,7 @@ pub mod material;
 /// This holds the binding between a geometry and the material
 /// for a drawable entity
 #[derive(Copy, Clone, Hash, Debug)]
-pub struct DrawBinding(Geometry, Material);
+pub struct DrawBinding(pub Geometry, pub Material);
 
 /// A Geometry entity
 #[derive(Copy, Clone, Hash, Debug)]
@@ -30,6 +30,23 @@ pub struct VertexBuffer(pub Entity, Length);
 /// A handle for a texture
 #[derive(Copy, Clone, Hash, Debug)]
 pub struct Texture(pub Entity);
+
+impl Geometry {
+    /// Creates a new entity with a new id
+    pub fn new() -> Geometry {
+        Geometry(Entity::new())
+    }
+
+    /// Binds an a component to the Geometry
+    pub fn bind<T>(self, data: T) -> EntityBinding<Geometry, (T,)> {
+        EntityBinding::new(self, data)
+    }
+
+    /// Delete this entity from a device
+    pub fn delete<D>(&self, delete: &mut D) where D: DeleteEntity<Geometry> {
+        delete.delete(*self);
+    }
+}
 
 #[derive(Copy, Clone, Hash, Debug)]
 pub enum Length {
@@ -211,7 +228,7 @@ impl GetLength for Vertex {
 impl VertexBuffer {
     /// Use the entire vertex buffer with the primative as a geometry
     pub fn geometry(&self, primative: Primative) -> GeometryData {
-        self.subbuffer(0, 0).geometry(primative)
+        self.entire().geometry(primative)
     }
 
     /// Convert the VertexBuffer into a subbuffer the includes the entire
@@ -298,13 +315,14 @@ pub enum VertexData {
 #[derive(Clone, Debug)]
 pub enum Message {
     Vertex(Operation<Entity, VertexData>),
-    Material(Operation<Entity, MaterialComponent>)
+    Material(Operation<Entity, MaterialComponent>),
+    Geometry(Operation<Entity, GeometryData>),
+    DrawBinding(Operation<Entity, DrawBinding>)
 }
 
 #[derive(Clone)]
 pub struct GraphicsSource(pub Sender<Message>);
 pub struct GraphicsSink(pub Receiver<Message>);
-
 
 impl GraphicsSource {
     pub fn new() -> (GraphicsSink, GraphicsSource) {
@@ -337,6 +355,22 @@ impl WriteEntity<Material, MaterialComponent> for GraphicsSource {
     fn write(&mut self, entity: Material, data: MaterialComponent) {
         self.0.send(Message::Material(
             Operation::Upsert(entity.0, data)
+        ))
+    }
+}
+
+impl WriteEntity<Geometry, GeometryData> for GraphicsSource {
+    fn write(&mut self, entity: Geometry, data: GeometryData) {
+        self.0.send(Message::Geometry(
+            Operation::Upsert(entity.0, data)
+        ))
+    }
+}
+
+impl WriteEntity<Entity, DrawBinding> for GraphicsSource {
+    fn write(&mut self, entity: Entity, data: DrawBinding) {
+        self.0.send(Message::DrawBinding(
+            Operation::Upsert(entity, data)
         ))
     }
 }
