@@ -28,8 +28,8 @@ pub struct Geometry(Entity);
 pub struct VertexBuffer(pub Entity, Length);
 
 /// A handle for a texture
-#[derive(Copy, Clone, Hash, Debug)]
-pub struct Texture(pub Entity);
+//#[derive(Copy, Clone, Hash, Debug)]
+//pub struct Texture(pub Entity);
 
 impl Geometry {
     /// Creates a new entity with a new id

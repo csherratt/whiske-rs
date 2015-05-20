@@ -13,7 +13,7 @@
 //   limitations under the License.
 
 use entity::*;
-use Texture;
+//use Texture;
 
 /// A Material entity
 #[derive(Copy, Clone, Hash, Debug)]
@@ -41,9 +41,9 @@ pub enum MaterialComponent {
     KaFlat([f32; 3]),
     KdFlat([f32; 3]),
     KsFlat([f32; 3]),
-    Ka(Texture),
+    /*Ka(Texture),
     Kd(Texture),
-    Ks(Texture)
+    Ks(Texture)*/
 }
 
 pub use self::MaterialComponent::*;
