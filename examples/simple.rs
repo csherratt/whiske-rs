@@ -1,15 +1,14 @@
-extern crate piston;
 extern crate engine;
-extern crate input;
 extern crate fibe;
 extern crate snowstorm;
+extern crate glutin;
 
 use std::thread;
-use piston::window::Window;
 use fibe::task;
 use snowstorm::channel::*;
+use glutin::Event;
 
-fn process_input(sched: &mut fibe::Schedule, index: u32, mut ch: Receiver<input::Input>) {
+fn process_input(sched: &mut fibe::Schedule, index: u32, mut ch: Receiver<Event>) {
     // Print out the messages
     while let Some(msg) = ch.try_recv() {
         println!("{}: {:?} {:?}", index, thread::current(), msg);
@@ -31,5 +30,12 @@ fn main() {
         engine.start_input_processor(move |sched, msgs| process_input(sched, i, msgs));
     }
 
-    engine.run(|_, window|  window.swap_buffers() );
+    engine.start_render(|_,_,_|{
+        println!("to do render here!");
+        Box::new(move |_, stream| {
+            stream.out.window.swap_buffers();
+        })
+    });
+
+    engine.run();
 }
