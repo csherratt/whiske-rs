@@ -137,17 +137,17 @@ pub enum Primative {
 /// describe geometry
 #[derive(Copy, Clone, Hash, Debug)]
 pub struct GeometryData {
-    buffer: VertexSubBuffer,
-    primative: Primative
+    pub buffer: VertexSubBuffer,
+    pub primative: Primative
 }
 
 /// describe a sub buffer of the parent buffer
 /// The parent VertexBuffer will be the SubBuffer's data
 #[derive(Copy, Clone, Hash, Debug)]
 pub struct VertexSubBuffer {
-    parent: Entity,
-    start: u32,
-    length: u32,
+    pub parent: Entity,
+    pub start: u32,
+    pub length: u32,
 }
 
 gfx_vertex!( VertexPos {
