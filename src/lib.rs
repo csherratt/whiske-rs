@@ -12,8 +12,7 @@ use glutin::Event;
 pub use snowstorm::channel::*;
 
 pub type Window = gfx::extra::stream::OwnedStream<
-    gfx_device_gl::Resources,
-    gfx_device_gl::CommandBuffer,
+    gfx_device_gl::Device,
     gfx_window_glutin::Output<gfx_device_gl::Resources>
 >;
 
