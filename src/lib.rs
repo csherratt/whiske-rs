@@ -161,13 +161,13 @@ gfx_vertex!( VertexPosNorm {
 
 gfx_vertex!( VertexPosTex {
     a_Position@ position: [f32; 3],
-    a_Texture@ texture: [f32; 2],
+    a_Tex0@ texture: [f32; 2],
 });
 
 gfx_vertex!( VertexPosTexNorm {
     a_Position@ position: [f32; 3],
     a_Normal@ normal: [f32; 3],
-    a_Texture@ texture: [f32; 2],
+    a_Tex0@ texture: [f32; 2],
 });
 
 #[derive(Clone, Debug)]
