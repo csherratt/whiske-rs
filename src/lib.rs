@@ -20,7 +20,7 @@ pub struct DrawBinding(pub Geometry, pub Material);
 
 /// A Geometry entity
 #[derive(Copy, Clone, Hash, Debug)]
-pub struct Geometry(Entity);
+pub struct Geometry(pub Entity);
 
 
 /// A handle for a vertex buffer
