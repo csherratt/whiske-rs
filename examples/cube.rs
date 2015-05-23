@@ -1,7 +1,7 @@
 extern crate engine;
 extern crate fibe;
 extern crate snowstorm;
-extern crate render;
+extern crate renderer;
 extern crate position;
 extern crate graphics;
 extern crate parent;
@@ -113,13 +113,13 @@ fn main() {
     eid.bind(Delta(Decomposed::identity())).write(&mut tx_position);
 
     engine.start_render(|_, render, device|{
-        let mut render = render::Render::new(gsink, rx_position, render, device);
+        let mut renderer = renderer::Renderer::new(gsink, rx_position, render, device);
         Box::new(move |sched, stream| {
         	println!("Render!");
         	tx_parent.next_frame();
         	tx_position.next_frame();
         	gsrc.next_frame();
-        	render.draw(sched, stream);
+        	renderer.draw(sched, stream);
         })
     });
 

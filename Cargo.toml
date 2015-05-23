@@ -1,5 +1,5 @@
 [package]
-name = "render"
+name = "renderer"
 version = "0.1.0"
 authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
 

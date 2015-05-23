@@ -53,7 +53,7 @@ impl<S: BaseFloat> Bound<S> for NullBound {
     }
 }
 
-pub struct Render {
+pub struct Renderer {
     device: Device,
     factory: gfx_device_gl::Factory,
 
@@ -86,7 +86,7 @@ impl gfx_scene::World for Position {
     }
 }
 
-impl AbstractScene<Resources> for Render {
+impl AbstractScene<Resources> for Renderer {
     type ViewInfo = gfx_pipeline::ViewInfo<f32>;
     type Material = Material<Resources>;
     type Camera = Camera<cgmath::Ortho<f32>, Entity>;
@@ -107,15 +107,15 @@ impl AbstractScene<Resources> for Render {
     }
 }
 
-impl Render {
+impl Renderer {
     pub fn new(graphics: GraphicsSink,
                position: channel::Receiver<Operation<Entity, Solved>>,
                device: Device,
-               mut factory: gfx_device_gl::Factory) -> Render {
+               mut factory: gfx_device_gl::Factory) -> Renderer {
 
         let pipeline = forward::Pipeline::new(&mut factory);
 
-        Render {
+        Renderer {
             device: device,
             factory: factory,
             graphics: graphics,
@@ -276,9 +276,9 @@ impl Render {
     }
 
     fn sync(&mut self) {
-        let mut select: SelectMap<fn(&mut Render) -> Option<Signal>> = SelectMap::new();
-        select.add(self.graphics.0.signal(), Render::sync_graphics);
-        select.add(self.pos_input.signal(), Render::sync_position);
+        let mut select: SelectMap<fn(&mut Renderer) -> Option<Signal>> = SelectMap::new();
+        select.add(self.graphics.0.signal(), Renderer::sync_graphics);
+        select.add(self.pos_input.signal(), Renderer::sync_position);
 
         while let Some((_, cb)) = select.next() {
             if let Some(s) = cb(self) {
