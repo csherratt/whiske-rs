@@ -154,21 +154,49 @@ gfx_vertex!( VertexPos {
     a_Position@ position: [f32; 3],
 });
 
+impl PartialEq for VertexPos {
+    fn eq(&self, other: &VertexPos) -> bool {
+        self.position == other.position
+    }
+}
+
 gfx_vertex!( VertexPosNorm {
     a_Position@ position: [f32; 3],
     a_Normal@ normal: [f32; 3],
 });
+
+impl PartialEq for VertexPosNorm {
+    fn eq(&self, other: &VertexPosNorm) -> bool {
+        self.position == other.position &&
+        self.normal == other.normal
+    }
+}
 
 gfx_vertex!( VertexPosTex {
     a_Position@ position: [f32; 3],
     a_Tex0@ texture: [f32; 2],
 });
 
+impl PartialEq for VertexPosTex {
+    fn eq(&self, other: &VertexPosTex) -> bool {
+        self.position == other.position &&
+        self.texture == other.texture
+    }
+}
+
 gfx_vertex!( VertexPosTexNorm {
     a_Position@ position: [f32; 3],
     a_Normal@ normal: [f32; 3],
     a_Tex0@ texture: [f32; 2],
 });
+
+impl PartialEq for VertexPosTexNorm {
+    fn eq(&self, other: &VertexPosTexNorm) -> bool {
+        self.position == other.position &&
+        self.texture == other.texture &&
+        self.normal == other.normal
+    }
+}
 
 #[derive(Clone, Debug)]
 pub enum Vertex {
