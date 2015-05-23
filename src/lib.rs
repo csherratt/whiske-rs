@@ -57,8 +57,13 @@ impl Engine {
         let (device, factory) = self.render_args.take().expect("Only one render can be created");
         let render = render(&mut self.pool, device, factory);
         self.render = Some(render);
-
     }
+
+    /// Get the scheduler to scheduler tasks on it
+    pub fn sched(&mut self) -> &mut fibe::Schedule {
+        &mut self.pool
+    }
+
     /// run the engine
     pub fn run(mut self) {
         let (mut send, recv) = self.input;
