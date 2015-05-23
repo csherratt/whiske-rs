@@ -99,19 +99,19 @@ impl PositionSystem {
         }
     }
 
-    fn solve(&self, eid: Entity) -> Matrix4<f32> {
+    fn solve(&self, eid: Entity) -> Decomposed<f32, Vector3<f32>, Quaternion<f32>> {
         // check to see if I have a parent
         let parent = self.child_to_parent.get(&eid)
             .map(|&parent| self.solve(parent))
-            .unwrap_or_else(|| Matrix4::identity());
+            .unwrap_or_else(|| Decomposed::identity());
 
-        let mat: Matrix4<f32> =
+        let mat: Decomposed<f32, Vector3<f32>, Quaternion<f32>> =
             self.deltas.get(&eid)
                        .map(|x| *x)
                        .expect("Expected delta, but none found")
                        .into();
 
-        parent.mul_m(&mat)
+        parent.concat(&mat)
     }
 
 
@@ -128,7 +128,13 @@ impl PositionSystem {
 #[derive(Debug, Clone, Copy)]
 pub struct Delta(pub Decomposed<f32, Vector3<f32>, Quaternion<f32>>);
 #[derive(Debug, Clone, Copy)]
-pub struct Solved(pub Matrix4<f32>);
+pub struct Solved(pub Decomposed<f32, Vector3<f32>, Quaternion<f32>>);
+
+impl Solved {
+    pub fn to_mat(&self) -> Matrix4<f32> {
+        From::from(self.0)
+    }
+}
 
 pub fn position(sched: &mut Schedule,
                 delta: Receiver<Operation<Entity, Delta>>,

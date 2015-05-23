@@ -84,11 +84,11 @@ fn children() {
     }
 
     let vec = Vector4::new(0f32, 0f32, 0f32, 1f32);
-    assert_eq!(hm.get(&e0).unwrap().0.mul_v(&vec), Vector4::new(1f32, 1f32, 1f32, 1f32));
-    assert_eq!(hm.get(&e1).unwrap().0.mul_v(&vec), Vector4::new(2f32, 2f32, 2f32, 1f32));
-    assert_eq!(hm.get(&e2).unwrap().0.mul_v(&vec), Vector4::new(3f32, 3f32, 3f32, 1f32));
-    assert_eq!(hm.get(&e3).unwrap().0.mul_v(&vec), Vector4::new(4f32, 4f32, 4f32, 1f32));
-    assert_eq!(hm.get(&e4).unwrap().0.mul_v(&vec), Vector4::new(5f32, 5f32, 5f32, 1f32));
+    assert_eq!(hm.get(&e0).unwrap().to_mat().mul_v(&vec), Vector4::new(1f32, 1f32, 1f32, 1f32));
+    assert_eq!(hm.get(&e1).unwrap().to_mat().mul_v(&vec), Vector4::new(2f32, 2f32, 2f32, 1f32));
+    assert_eq!(hm.get(&e2).unwrap().to_mat().mul_v(&vec), Vector4::new(3f32, 3f32, 3f32, 1f32));
+    assert_eq!(hm.get(&e3).unwrap().to_mat().mul_v(&vec), Vector4::new(4f32, 4f32, 4f32, 1f32));
+    assert_eq!(hm.get(&e4).unwrap().to_mat().mul_v(&vec), Vector4::new(5f32, 5f32, 5f32, 1f32));
     drop(front);
 }
 
@@ -127,10 +127,10 @@ fn children_tree() {
     }
 
     let vec = Vector4::new(0f32, 0f32, 0f32, 1f32);
-    assert_eq!(hm.get(&e2).unwrap().0.mul_v(&vec), Vector4::new(2f32, 2f32, 2f32, 1f32));
-    assert_eq!(hm.get(&e3).unwrap().0.mul_v(&vec), Vector4::new(0f32, 0f32, 0f32, 1f32));
-    assert_eq!(hm.get(&e4).unwrap().0.mul_v(&vec), Vector4::new(0f32, 0f32, 0f32, 1f32));
-    assert_eq!(hm.get(&e5).unwrap().0.mul_v(&vec), Vector4::new(-2f32, -2f32, -2f32, 1f32));
+    assert_eq!(hm.get(&e2).unwrap().to_mat().mul_v(&vec), Vector4::new(2f32, 2f32, 2f32, 1f32));
+    assert_eq!(hm.get(&e3).unwrap().to_mat().mul_v(&vec), Vector4::new(0f32, 0f32, 0f32, 1f32));
+    assert_eq!(hm.get(&e4).unwrap().to_mat().mul_v(&vec), Vector4::new(0f32, 0f32, 0f32, 1f32));
+    assert_eq!(hm.get(&e5).unwrap().to_mat().mul_v(&vec), Vector4::new(-2f32, -2f32, -2f32, 1f32));
     drop(front);
 }
 
