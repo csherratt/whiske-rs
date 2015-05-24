@@ -33,16 +33,16 @@ git = "https://github.com/gfx-rs/gfx-rs.git"
 git = "https://github.com/gfx-rs/gfx_device_gl.git"
 
 [dependencies.draw_queue]
-git = "https://github.com/kvark/gfx_scene.git"
+git = "https://github.com/gfx-rs/gfx_scene.git"
 
 [dependencies.gfx_phase]
-git = "https://github.com/kvark/gfx_scene.git"
+git = "https://github.com/gfx-rs/gfx_scene.git"
 
 [dependencies.gfx_scene]
-git = "https://github.com/kvark/gfx_scene.git"
+git = "https://github.com/gfx-rs/gfx_scene.git"
 
 [dependencies.gfx_pipeline]
-git = "https://github.com/kvark/gfx_pipeline"
+git = "https://github.com/csherratt/gfx_pipeline"
 
 [dependencies.cgmath]
 git = "https://github.com/bjz/cgmath-rs.git"
