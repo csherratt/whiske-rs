@@ -19,7 +19,7 @@ use snowstorm::channel;
 use position::Solved;
 use graphics::{
     GraphicsSink, Message, VertexData,
-    Vertex, Pos, PosTex, PosNorm, PosTexNorm,
+    Pos, PosTex, PosNorm, PosTexNorm,
     MaterialComponent, GeometryData, DrawBinding
 };
 use engine::Window;
@@ -30,14 +30,12 @@ use gfx::{
     Mesh, handle, BufferRole, Factory,
     Slice, PrimitiveType, SliceKind
 };
-use gfx::batch::OwnedBatch;
 use gfx::traits::FactoryExt;
 use gfx_device_gl::{Device, Resources};
-use gfx_phase::{Technique, Phase};
 use gfx_scene::{AbstractScene, Camera, Report, Error, Context, Frustum};
 use gfx_pipeline::{Material, Transparency, forward, Pipeline};
 
-use cgmath::{AffineMatrix3, Matrix4, Bound, Relation, BaseFloat, Decomposed, Vector3, Quaternion, Transform};
+use cgmath::{Bound, Relation, BaseFloat, Decomposed, Vector3, Quaternion, Transform};
 
 struct GeometrySlice {
     mesh: Mesh<Resources>,
@@ -48,7 +46,7 @@ struct GeometrySlice {
 struct NullBound;
 
 impl<S: BaseFloat> Bound<S> for NullBound {
-    fn relate_plane(&self, p: &cgmath::Plane<S>) -> Relation {
+    fn relate_plane(&self, _p: &cgmath::Plane<S>) -> Relation {
         Relation::In
     }
 }
@@ -89,21 +87,19 @@ impl gfx_scene::World for Position {
 impl AbstractScene<Resources> for Renderer {
     type ViewInfo = gfx_pipeline::ViewInfo<f32>;
     type Material = Material<Resources>;
-    type Camera = Camera<cgmath::Ortho<f32>, Entity>;
+    type Camera = Camera<cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>, Entity>;
 
     fn draw<H, S>(&self,
                   phase: &mut H,
-                  camera: &Camera<cgmath::Ortho<f32>, Entity>,
+                  camera: &Camera<cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>, Entity>,
                   stream: &mut S) -> Result<Report, Error> where
         H: gfx_phase::AbstractPhase<Resources, Material<Resources>, gfx_pipeline::ViewInfo<f32>>,
         S: gfx::Stream<Resources>,
     
     {   
         let mut culler = Frustum::new();
-        let x = Context::new(&self.position, &mut culler, camera)
-                        .draw(self.to_draw.values(), phase, stream);
-        println!("{:?}", x);
-        x
+        Context::new(&self.position, &mut culler, camera)
+                .draw(self.to_draw.values(), phase, stream)
     }
 }
 
@@ -251,7 +247,8 @@ impl Renderer {
                     self.add_binding(eid, geo);
                 }
                 Message::DrawBinding(Operation::Delete(eid)) => {
-
+                    self.binding.remove(&eid);
+                    self.to_draw.remove(&eid);
                 }
             }
         }
@@ -296,16 +293,17 @@ impl Renderer {
         let eid = Entity::new();
         let camera = gfx_scene::Camera {
             name: "Cam".to_string(),
-            projection: cgmath::Ortho {
-                left: -50., right: 50.,
-                bottom: -50., top: 50.,
-                near: -50f32, far: 50f32,
+            projection: cgmath::PerspectiveFov{
+                fovy: cgmath::deg(90.),
+                aspect: 4./3.,
+                near: 0.1,
+                far: 1000.
             },
             node: eid
         };
         self.position.0.insert(eid, Solved(Decomposed::identity()));
         let mut pipeline = self.pipeline.take().unwrap();
-        pipeline.render(self, &camera, window);
+        pipeline.render(self, &camera, window).unwrap();
         self.pipeline = Some(pipeline);
         window.present(&mut self.device);
     }

@@ -9,16 +9,14 @@ extern crate genmesh;
 extern crate cgmath;
 extern crate entity;
 
-use std::thread;
-use fibe::task;
 use snowstorm::channel::*;
 
 use graphics::{Vertex, VertexPosTexNorm, PosTexNorm, VertexBuffer,
     Geometry, Material, Primative, KdFlat, DrawBinding
 };
-use genmesh::generators::{Plane, Cube, SphereUV};
+use genmesh::generators::Cube;
 use genmesh::{MapToVertices, Indexer, LruIndexer};
-use genmesh::{Vertices, Triangulate, Quad, Polygon};
+use genmesh::{Vertices, Triangulate, Quad};
 use cgmath::{Vector3, EuclideanVector, Decomposed, Transform};
 
 use entity::Entity;
@@ -29,7 +27,7 @@ fn build_vectors<T: Iterator<Item=Quad<VertexPosTexNorm>>>(input: T)
 
     let mut mesh_data: Vec<VertexPosTexNorm> = Vec::new();
     let index: Vec<u32> = {
-        let mut indexer = LruIndexer::new(16, |_, v| mesh_data.push(v));
+        let mut indexer = LruIndexer::new(8, |_, v| mesh_data.push(v));
         input.map(|mut p: Quad<VertexPosTexNorm>| {
             let a = Vector3::new(p.x.position[0],
                                  p.x.position[1],
@@ -66,12 +64,7 @@ fn build_vectors<T: Iterator<Item=Quad<VertexPosTexNorm>>>(input: T)
 
 fn main() {
     let mut engine = engine::Engine::new();
-
-    for i in 0..1 {
-        engine.start_input_processor(|sched, msgs| {
-
-        });
-    }
+    engine.start_input_processor(|_, _| { });
 
     let (mut tx_parent, rx) = channel();
     let rx_parent = parent::parent(engine.sched(), rx);
@@ -79,7 +72,7 @@ fn main() {
     let (mut tx_position, rx) = channel();
     let rx_position = position::position(engine.sched(), rx, rx_parent.clone());
 
-    let (mut gsink, mut gsrc) = graphics::GraphicsSource::new();
+    let (gsink, mut gsrc) = graphics::GraphicsSource::new();
 
     let (cube, mat) = {
         let (cube_v, cube_i) = build_vectors(
