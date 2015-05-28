@@ -89,7 +89,11 @@ impl SceneOutput {
             Some(self.0.signal())
         }
     }
-} 
+}
+
+impl Signals for SceneOutput {
+    fn signal(&self) -> Signal { self.0.signal() }
+}
 
 struct SceneSystem {
     // input
