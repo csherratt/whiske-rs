@@ -20,6 +20,9 @@ git = "https://github.com/snowmew/position.git"
 [dependencies.graphics]
 git = "https://github.com/snowmew/graphics.git"
 
+[dependencies.scene]
+git = "https://github.com/snowmew/scene.git"
+
 [dependencies.snowstorm]
 git = "https://github.com/csherratt/snowstorm.git"
 

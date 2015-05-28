@@ -1,6 +1,8 @@
 extern crate entity;
 extern crate position;
 extern crate graphics;
+extern crate scene;
+
 extern crate snowstorm;
 extern crate fibe;
 #[macro_use]
@@ -14,7 +16,7 @@ extern crate draw_queue;
 extern crate pulse;
 extern crate cgmath;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use snowstorm::channel;
 use position::Solved;
 use graphics::{
@@ -22,6 +24,7 @@ use graphics::{
     Pos, PosTex, PosNorm, PosTexNorm,
     MaterialComponent, GeometryData, DrawBinding
 };
+use scene::{Scene, SceneOutput};
 use engine::Window;
 use pulse::{Signal, SelectMap, Signals};
 use entity::{Entity, Operation};
@@ -57,6 +60,7 @@ pub struct Renderer {
 
     graphics: graphics::GraphicsSink,
     pos_input: channel::Receiver<Operation<Entity, Solved>>,
+    scene_output: SceneOutput,
 
     position: Position,
 
@@ -68,7 +72,11 @@ pub struct Renderer {
     binding: HashMap<Entity, DrawBinding>,
     to_draw: HashMap<Entity, gfx_scene::Entity<Resources, Material<Resources>, Position, NullBound>>,
 
-    pipeline: Option<forward::Pipeline<Resources>>
+    scene: Scene,
+    scenes: HashMap<Scene, HashSet<Entity>>,
+
+    pipeline: Option<forward::Pipeline<Resources>>,
+
 }
 
 pub struct Position(pub HashMap<Entity, Solved>);
@@ -88,6 +96,7 @@ impl AbstractScene<Resources> for Renderer {
     type ViewInfo = gfx_pipeline::ViewInfo<f32>;
     type Material = Material<Resources>;
     type Camera = Camera<cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>, Entity>;
+    type Status = Report;
 
     fn draw<H, S>(&self,
                   phase: &mut H,
@@ -98,14 +107,17 @@ impl AbstractScene<Resources> for Renderer {
     
     {   
         let mut culler = Frustum::new();
+        let drawlist = self.scenes.get(&self.scene).unwrap();
+        let iter = drawlist.iter().map(|x| self.to_draw.get(x).unwrap());
         Context::new(&self.position, &mut culler, camera)
-                .draw(self.to_draw.values(), phase, stream)
+                .draw(iter, phase, stream)
     }
 }
 
 impl Renderer {
     pub fn new(graphics: GraphicsSink,
                position: channel::Receiver<Operation<Entity, Solved>>,
+               scene: SceneOutput,
                device: Device,
                mut factory: gfx_device_gl::Factory) -> Renderer {
 
@@ -123,7 +135,10 @@ impl Renderer {
             geometry_slice: HashMap::new(),
             to_draw: HashMap::new(),
             binding: HashMap::new(),
-            pipeline: Some(pipeline.unwrap())
+            pipeline: Some(pipeline.unwrap()),
+            scenes: HashMap::new(),
+            scene_output: scene,
+            scene: Scene::new()
         }
     }
 
@@ -272,10 +287,15 @@ impl Renderer {
         }
     }
 
+    fn sync_scene(&mut self) -> Option<Signal> {
+        self.scene_output.write_into(&mut self.scenes)
+    }
+
     fn sync(&mut self) {
         let mut select: SelectMap<fn(&mut Renderer) -> Option<Signal>> = SelectMap::new();
         select.add(self.graphics.0.signal(), Renderer::sync_graphics);
         select.add(self.pos_input.signal(), Renderer::sync_position);
+        select.add(self.scene_output.signal(), Renderer::sync_scene);
 
         while let Some((_, cb)) = select.next() {
             if let Some(s) = cb(self) {
@@ -285,10 +305,12 @@ impl Renderer {
 
         self.graphics.0.next_frame();
         self.pos_input.next_frame();
+        self.scene_output.next_frame();
     }
 
     /// 
-    pub fn draw(&mut self, _: &mut fibe::Schedule, window: &mut Window) {
+    pub fn draw(&mut self, _: &mut fibe::Schedule, window: &mut Window, scene: Scene) {
+        self.scene = scene;
         self.sync();
         let eid = Entity::new();
         let camera = gfx_scene::Camera {
