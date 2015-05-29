@@ -1,12 +1,20 @@
 [package]
 name = "renderer"
 version = "0.1.0"
-authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
+authors = ["Slide-rs Developers"]
 
 [examples]
 
 [dependencies]
 pulse="*"
+gfx="*"
+gfx_device_gl="*"
+cgmath="*"
+draw_queue="*"
+gfx_phase="*"
+gfx_scene="*"
+gfx_pipeline="*"
+
 
 [dependencies.slide-rs-engine]
 git = "https://github.com/slide-rs/engine.git"
@@ -27,31 +35,10 @@ git = "https://github.com/slide-rs/scene.git"
 git = "https://github.com/csherratt/snowstorm.git"
 
 [dependencies.fibe]
-git = "https://github.com/kvark/fibe-rs.git"
-
-[dependencies.gfx]
-git = "https://github.com/gfx-rs/gfx-rs.git"
-
-[dependencies.gfx_device_gl]
-git = "https://github.com/gfx-rs/gfx_device_gl.git"
-
-[dependencies.draw_queue]
-git = "https://github.com/gfx-rs/gfx_scene.git"
-
-[dependencies.gfx_phase]
-git = "https://github.com/gfx-rs/gfx_scene.git"
-
-[dependencies.gfx_scene]
-git = "https://github.com/gfx-rs/gfx_scene.git"
-
-[dependencies.gfx_pipeline]
-git = "https://github.com/kvark/gfx_pipeline"
-
-[dependencies.cgmath]
-git = "https://github.com/bjz/cgmath-rs.git"
+git = "https://github.com/slide-rs/fibe-rs.git"
 
 [dev-dependencies.parent]
-git = "https://github.com/snowmew/parent.git"
+git = "https://github.com/slide-rs/parent.git"
 
 [dev-dependencies]
 genmesh = "*"

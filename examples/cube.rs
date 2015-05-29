@@ -121,9 +121,10 @@ fn main() {
 
     let (mut tx, mut rx) = channel();
 
-    engine.start_input_processor(move |sched, mut msg| {
+    engine.start_input_processor(move |_, mut msg| {
         loop {
-            while let Ok(x) = msg.recv() {}
+            // TODO, fibers~
+            while let Ok(_) = msg.recv() {}
             msg.next_frame();
 
             tx_parent.next_frame();
@@ -132,7 +133,6 @@ fn main() {
             scene_input.next_frame();
             i += 1;
             let len = scenes.len();
-            println!("{} {}", i, len);
             tx.send(scenes[(i / 16) % len]);
             tx.flush();
         }
