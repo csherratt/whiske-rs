@@ -8,20 +8,20 @@ authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
 [dependencies]
 pulse="*"
 
-[dependencies.snowmew-engine]
-git = "https://github.com/snowmew/engine.git"
+[dependencies.slide-rs-engine]
+git = "https://github.com/slide-rs/engine.git"
 
 [dependencies.entity]
-git = "https://github.com/snowmew/entity.git"
+git = "https://github.com/slide-rs/entity.git"
 
 [dependencies.position]
-git = "https://github.com/snowmew/position.git"
+git = "https://github.com/slide-rs/position.git"
 
 [dependencies.graphics]
-git = "https://github.com/snowmew/graphics.git"
+git = "https://github.com/slide-rs/graphics.git"
 
 [dependencies.scene]
-git = "https://github.com/snowmew/scene.git"
+git = "https://github.com/slide-rs/scene.git"
 
 [dependencies.snowstorm]
 git = "https://github.com/csherratt/snowstorm.git"
@@ -45,7 +45,7 @@ git = "https://github.com/gfx-rs/gfx_scene.git"
 git = "https://github.com/gfx-rs/gfx_scene.git"
 
 [dependencies.gfx_pipeline]
-git = "https://github.com/csherratt/gfx_pipeline"
+git = "https://github.com/kvark/gfx_pipeline"
 
 [dependencies.cgmath]
 git = "https://github.com/bjz/cgmath-rs.git"
