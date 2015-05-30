@@ -17,28 +17,32 @@ gfx_pipeline="*"
 
 
 [dependencies.slide-rs-engine]
-git = "https://github.com/slide-rs/engine.git"
+git = "https://github.com/csherratt/engine.git"
 
 [dependencies.entity]
-git = "https://github.com/slide-rs/entity.git"
+git = "https://github.com/csherratt/entity.git"
 
 [dependencies.position]
-git = "https://github.com/slide-rs/position.git"
+git = "https://github.com/csherratt/position.git"
 
 [dependencies.graphics]
-git = "https://github.com/slide-rs/graphics.git"
+git = "https://github.com/csherratt/graphics.git"
 
 [dependencies.scene]
-git = "https://github.com/slide-rs/scene.git"
+git = "https://github.com/csherratt/scene.git"
 
 [dependencies.snowstorm]
 git = "https://github.com/csherratt/snowstorm.git"
 
+
 [dependencies.fibe]
 git = "https://github.com/slide-rs/fibe-rs.git"
 
+[dev-dependencies.future_pulse]
+git = "https://github.com/csherratt/future_pulse.git"
+
 [dev-dependencies.parent]
-git = "https://github.com/slide-rs/parent.git"
+git = "https://github.com/csherratt/parent.git"
 
 [dev-dependencies]
 genmesh = "*"

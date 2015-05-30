@@ -22,7 +22,7 @@ use position::Solved;
 use graphics::{
     GraphicsSink, Message, VertexData,
     Pos, PosTex, PosNorm, PosTexNorm,
-    MaterialComponent, GeometryData, DrawBinding
+    MaterialComponent, GeometryData, Geometry
 };
 use scene::{Scene, SceneOutput};
 use engine::Window;
@@ -60,6 +60,7 @@ pub struct Renderer {
 
     graphics: graphics::GraphicsSink,
     pos_input: channel::Receiver<Operation<Entity, Solved>>,
+    binding_input: channel::Receiver<Operation<Entity, DrawBinding>>,
     scene_output: SceneOutput,
 
     position: Position,
@@ -70,7 +71,6 @@ pub struct Renderer {
     geometry_slice: HashMap<Entity, GeometrySlice>,
 
     binding: HashMap<Entity, DrawBinding>,
-    to_draw: HashMap<Entity, gfx_scene::Entity<Resources, Material<Resources>, Position, NullBound>>,
 
     scene: Scene,
     scenes: HashMap<Scene, HashSet<Entity>>,
@@ -88,7 +88,7 @@ impl gfx_scene::World for Position {
     type SkeletonPtr = ();
 
     fn get_transform(&self, node: &Entity) -> Decomposed<f32, Vector3<f32>, Quaternion<f32>> {
-        self.0.get(node).unwrap().0
+        self.0.get(node).expect("Transform not found").0
     }
 }
 
@@ -101,45 +101,74 @@ impl AbstractScene<Resources> for Renderer {
     fn draw<H, S>(&self,
                   phase: &mut H,
                   camera: &Camera<cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>, Entity>,
-                  stream: &mut S) -> Result<Report, Error> where
+                  stream: &mut S) -> Result<Self::Status, Error> where
         H: gfx_phase::AbstractPhase<Resources, Material<Resources>, gfx_pipeline::ViewInfo<f32>>,
         S: gfx::Stream<Resources>,
     
     {   
         let mut culler = Frustum::new();
         let drawlist = self.scenes.get(&self.scene).unwrap();
-        let iter = drawlist.iter().map(|x| self.to_draw.get(x).unwrap());
+        let items: Vec<gfx_scene::Entity<Resources, Material<Resources>, Position, NullBound>> =
+            drawlist.iter()
+                    .filter_map(|eid| self.binding.get(eid).map(|x| (eid, x)))
+                    .filter_map(|(eid, draw)| {
+
+            match (self.geometry_slice.get(&(draw.0).0),
+                   self.materials.get(&(draw.1).0)) {
+                (Some(a), Some(b)) => {
+                    Some(gfx_scene::Entity{
+                        name: "".to_string(),
+                        visible: true,
+                        mesh: a.mesh.clone(),
+                        node: *eid,
+                        skeleton: None,
+                        bound: NullBound,
+                        fragments: vec![gfx_scene::Fragment{
+                            material: b.clone(),
+                            slice: a.slice.clone()
+                        }]
+                    })
+                }
+                _ => None
+
+            }
+        }).collect();
+
         Context::new(&self.position, &mut culler, camera)
-                .draw(iter, phase, stream)
+                .draw(items.iter(), phase, stream)
     }
 }
+
+pub type RendererInput = channel::Sender<Operation<Entity, DrawBinding>>;
 
 impl Renderer {
     pub fn new(graphics: GraphicsSink,
                position: channel::Receiver<Operation<Entity, Solved>>,
                scene: SceneOutput,
                device: Device,
-               mut factory: gfx_device_gl::Factory) -> Renderer {
+               mut factory: gfx_device_gl::Factory) -> (RendererInput, Renderer) {
 
         let pipeline = forward::Pipeline::new(&mut factory);
+        let (tx, rx) = channel::channel();
 
-        Renderer {
+        (tx,
+         Renderer {
             device: device,
             factory: factory,
             graphics: graphics,
             pos_input: position,
+            binding_input: rx,
             position: Position(HashMap::new()),
             vertex: HashMap::new(),
             materials: HashMap::new(),
             geometry_data: HashMap::new(),
             geometry_slice: HashMap::new(),
-            to_draw: HashMap::new(),
             binding: HashMap::new(),
             pipeline: Some(pipeline.unwrap()),
             scenes: HashMap::new(),
             scene_output: scene,
             scene: Scene::new()
-        }
+        })
     }
 
     fn add_vertex(&mut self, entity: Entity, vertex: VertexData) {
@@ -214,26 +243,23 @@ impl Renderer {
         });
     }
 
-    fn add_binding(&mut self, entity: Entity, draw: DrawBinding) {
-        self.binding.insert(entity, draw);
-
-        match (self.geometry_slice.get(&(draw.0).0), self.materials.get(&(draw.1).0)) {
-            (Some(a), Some(b)) => {
-                Some(gfx_scene::Entity{
-                    name: "".to_string(),
-                    visible: true,
-                    mesh: a.mesh.clone(),
-                    node: entity,
-                    skeleton: None,
-                    bound: NullBound,
-                    fragments: vec![gfx_scene::Fragment{
-                        material: b.clone(),
-                        slice: a.slice.clone()
-                    }]
-                })
+    fn sync_binding(&mut self) -> Option<Signal> {
+        while let Some(msg) = self.binding_input.try_recv().map(|x| x.clone()) {
+            match msg {
+                Operation::Upsert(eid, binding) => {
+                    self.binding.insert(eid, binding);                  
+                }
+                Operation::Delete(eid) => {
+                    self.binding.remove(&eid);
+                }
             }
-            _ => None
-        }.map(|e| self.to_draw.insert(entity, e));
+        }
+
+        if self.binding_input.closed() {
+            None
+        } else {
+            Some(self.binding_input.signal())
+        }
     }
 
     fn sync_graphics(&mut self) -> Option<Signal> {
@@ -257,13 +283,6 @@ impl Renderer {
                 Message::Geometry(Operation::Delete(eid)) => {
                     self.geometry_data.remove(&eid);
                     self.geometry_slice.remove(&eid);
-                }
-                Message::DrawBinding(Operation::Upsert(eid, geo)) => {
-                    self.add_binding(eid, geo);
-                }
-                Message::DrawBinding(Operation::Delete(eid)) => {
-                    self.binding.remove(&eid);
-                    self.to_draw.remove(&eid);
                 }
             }
         }
@@ -296,6 +315,7 @@ impl Renderer {
         select.add(self.graphics.0.signal(), Renderer::sync_graphics);
         select.add(self.pos_input.signal(), Renderer::sync_position);
         select.add(self.scene_output.signal(), Renderer::sync_scene);
+        select.add(self.binding_input.signal(), Renderer::sync_binding);
 
         while let Some((_, cb)) = select.next() {
             if let Some(s) = cb(self) {
@@ -306,6 +326,7 @@ impl Renderer {
         self.graphics.0.next_frame();
         self.pos_input.next_frame();
         self.scene_output.next_frame();
+        self.binding_input.next_frame();
     }
 
     /// 
@@ -331,3 +352,9 @@ impl Renderer {
     }
 }
 
+
+
+/// This holds the binding between a geometry and the material
+/// for a drawable entity
+#[derive(Copy, Clone, Hash, Debug)]
+pub struct DrawBinding(pub graphics::Geometry, pub graphics::Material);
