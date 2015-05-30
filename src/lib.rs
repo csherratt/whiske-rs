@@ -13,11 +13,6 @@ pub use material::*;
 
 pub mod material;
 
-/// This holds the binding between a geometry and the material
-/// for a drawable entity
-#[derive(Copy, Clone, Hash, Debug)]
-pub struct DrawBinding(pub Geometry, pub Material);
-
 /// A Geometry entity
 #[derive(Copy, Clone, Hash, Debug)]
 pub struct Geometry(pub Entity);
@@ -345,7 +340,6 @@ pub enum Message {
     Vertex(Operation<Entity, VertexData>),
     Material(Operation<Entity, MaterialComponent>),
     Geometry(Operation<Entity, GeometryData>),
-    DrawBinding(Operation<Entity, DrawBinding>)
 }
 
 #[derive(Clone)]
@@ -391,14 +385,6 @@ impl WriteEntity<Geometry, GeometryData> for GraphicsSource {
     fn write(&mut self, entity: Geometry, data: GeometryData) {
         self.0.send(Message::Geometry(
             Operation::Upsert(entity.0, data)
-        ))
-    }
-}
-
-impl WriteEntity<Entity, DrawBinding> for GraphicsSource {
-    fn write(&mut self, entity: Entity, data: DrawBinding) {
-        self.0.send(Message::DrawBinding(
-            Operation::Upsert(entity, data)
         ))
     }
 }
