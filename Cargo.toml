@@ -5,6 +5,7 @@ authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
 
 [dependencies]
 pulse="*"
+gfx="*"
 
 [dependencies.entity]
 git = "https://github.com/csherratt/entity.git"
@@ -18,5 +19,3 @@ git = "https://github.com/csherratt/snowstorm.git"
 [dependencies.fibe]
 git = "https://github.com/slide-rs/fibe-rs.git"
 
-[dependencies.gfx]
-git = "https://github.com/gfx-rs/gfx-rs"
