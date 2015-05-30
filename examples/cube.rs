@@ -15,12 +15,12 @@ use snowstorm::channel::*;
 use graphics::{Vertex, VertexPosTexNorm, PosTexNorm, VertexBuffer,
     Geometry, Material, Primative, KdFlat
 };
-use renderer::DrawBinding;
+use renderer::{DrawBinding, Camera, Primary};
 use scene::Scene;
 use genmesh::generators::Cube;
 use genmesh::{MapToVertices, Indexer, LruIndexer};
 use genmesh::{Vertices, Triangulate, Quad};
-use cgmath::{Vector3, EuclideanVector, Decomposed, Transform};
+use cgmath::{Vector3, EuclideanVector, Decomposed, Transform, PerspectiveFov};
 use future_pulse::Future;
 
 use entity::Entity;
@@ -78,17 +78,11 @@ fn main() {
     let (gsink, mut gsrc) = graphics::GraphicsSource::new();
 
     let (read, set) = Future::new();
-    let (mut tx, mut rx) = channel();
     engine.start_render(|_, render, device|{
         let (input, mut renderer) = renderer::Renderer::new(gsink, rx_position, scene_output, render, device);
         set.set(input);
         Box::new(move |sched, stream| {
-            println!("Render!");
-            if let Ok(&scene) = rx.recv() {
-               renderer.draw(sched, stream, scene);
-            } else {
-                panic!("uh, oh {:?}", rx.recv());
-            }
+            renderer.draw(sched, stream);
         })
     });
     let mut render_input = read.get();
@@ -127,8 +121,6 @@ fn main() {
                 xs[xi].bind(eid, &mut scene_input);
                 ys[yi].bind(eid, &mut scene_input);
                 zs[zi].bind(eid, &mut scene_input);
-
-                println!("{:?}", eid);
             }
         }
     }
@@ -140,21 +132,32 @@ fn main() {
     let mut scenes: Vec<Scene> = xs.into_iter().chain(ys.into_iter()).chain(zs.into_iter()).collect();
     scenes.push(all);
 
+    let camera = Entity::new();
     engine.start_input_processor(move |_, mut msg| {
         loop {
             // TODO, fibers~
             while let Ok(_) = msg.recv() {}
             msg.next_frame();
 
+            i += 1;
+            let len = scenes.len();
+            camera.bind(Delta(Decomposed::identity())).write(&mut tx_position);
+            camera.bind(Primary)
+                  .bind(Camera(
+                    PerspectiveFov {
+                        fovy: cgmath::deg(90.),
+                        aspect: 4./3.,
+                        near: 0.1,
+                        far: 1000.
+                    },
+                    scenes[(i / 16) % len]
+            )).write(&mut render_input);
+
             tx_parent.next_frame();
             tx_position.next_frame();
             gsrc.next_frame();
             scene_input.next_frame();
             render_input.next_frame();
-            i += 1;
-            let len = scenes.len();
-            tx.send(scenes[(i / 16) % len]);
-            tx.flush();
         }
     });
     engine.run();

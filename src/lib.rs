@@ -20,7 +20,7 @@ use std::collections::{HashMap, HashSet};
 use snowstorm::channel;
 use position::Solved;
 use graphics::{
-    GraphicsSink, Message, VertexData,
+    GraphicsSink, VertexData,
     Pos, PosTex, PosNorm, PosTexNorm,
     MaterialComponent, GeometryData, Geometry
 };
@@ -35,7 +35,7 @@ use gfx::{
 };
 use gfx::traits::FactoryExt;
 use gfx_device_gl::{Device, Resources};
-use gfx_scene::{AbstractScene, Camera, Report, Error, Context, Frustum};
+use gfx_scene::{AbstractScene, Report, Error, Context, Frustum};
 use gfx_pipeline::{Material, Transparency, forward, Pipeline};
 
 use cgmath::{Bound, Relation, BaseFloat, Decomposed, Vector3, Quaternion, Transform};
@@ -60,7 +60,7 @@ pub struct Renderer {
 
     graphics: graphics::GraphicsSink,
     pos_input: channel::Receiver<Operation<Entity, Solved>>,
-    binding_input: channel::Receiver<Operation<Entity, DrawBinding>>,
+    render_input: channel::Receiver<Message>,
     scene_output: SceneOutput,
 
     position: Position,
@@ -69,6 +69,8 @@ pub struct Renderer {
     materials: HashMap<Entity, Material<Resources>>,
     geometry_data: HashMap<Entity, GeometryData>,
     geometry_slice: HashMap<Entity, GeometrySlice>,
+    cameras: HashMap<Entity, Camera>,
+    primary: Option<Entity>,
 
     binding: HashMap<Entity, DrawBinding>,
 
@@ -95,12 +97,12 @@ impl gfx_scene::World for Position {
 impl AbstractScene<Resources> for Renderer {
     type ViewInfo = gfx_pipeline::ViewInfo<f32>;
     type Material = Material<Resources>;
-    type Camera = Camera<cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>, Entity>;
+    type Camera = gfx_scene::Camera<cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>, Entity>;
     type Status = Report;
 
     fn draw<H, S>(&self,
                   phase: &mut H,
-                  camera: &Camera<cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>, Entity>,
+                  camera: &gfx_scene::Camera<cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>, Entity>,
                   stream: &mut S) -> Result<Self::Status, Error> where
         H: gfx_phase::AbstractPhase<Resources, Material<Resources>, gfx_pipeline::ViewInfo<f32>>,
         S: gfx::Stream<Resources>,
@@ -139,7 +141,39 @@ impl AbstractScene<Resources> for Renderer {
     }
 }
 
-pub type RendererInput = channel::Sender<Operation<Entity, DrawBinding>>;
+#[derive(Copy, Clone)]
+pub enum Message {
+    Binding(Operation<Entity, DrawBinding>),
+    Camera(Operation<Entity, Camera>),
+    Slot(Operation<Entity, Primary>)
+}
+
+pub struct RendererInput(pub channel::Sender<Message>);
+
+impl RendererInput {
+    pub fn next_frame(&mut self) {
+        self.0.next_frame();
+    }
+}
+
+impl entity::WriteEntity<Entity, DrawBinding> for RendererInput {
+    fn write(&mut self, eid: Entity, value: DrawBinding) {
+        self.0.send(Message::Binding(Operation::Upsert(eid, value)))
+    }
+}
+
+impl entity::WriteEntity<Entity, Primary> for RendererInput {
+    fn write(&mut self, eid: Entity, value: Primary) {
+        self.0.send(Message::Slot(Operation::Upsert(eid, value)))
+    }
+}
+
+impl entity::WriteEntity<Entity, Camera> for RendererInput {
+    fn write(&mut self, eid: Entity, value: Camera) {
+        self.0.send(Message::Camera(Operation::Upsert(eid, value)))
+    }
+}
+
 
 impl Renderer {
     pub fn new(graphics: GraphicsSink,
@@ -151,13 +185,13 @@ impl Renderer {
         let pipeline = forward::Pipeline::new(&mut factory);
         let (tx, rx) = channel::channel();
 
-        (tx,
+        (RendererInput(tx),
          Renderer {
             device: device,
             factory: factory,
             graphics: graphics,
             pos_input: position,
-            binding_input: rx,
+            render_input: rx,
             position: Position(HashMap::new()),
             vertex: HashMap::new(),
             materials: HashMap::new(),
@@ -167,7 +201,9 @@ impl Renderer {
             pipeline: Some(pipeline.unwrap()),
             scenes: HashMap::new(),
             scene_output: scene,
-            scene: Scene::new()
+            scene: Scene::new(),
+            primary: None,
+            cameras: HashMap::new()
         })
     }
 
@@ -244,25 +280,40 @@ impl Renderer {
     }
 
     fn sync_binding(&mut self) -> Option<Signal> {
-        while let Some(msg) = self.binding_input.try_recv().map(|x| x.clone()) {
+        while let Some(msg) = self.render_input.try_recv().map(|x| x.clone()) {
             match msg {
-                Operation::Upsert(eid, binding) => {
+                Message::Binding(Operation::Upsert(eid, binding)) => {
                     self.binding.insert(eid, binding);                  
                 }
-                Operation::Delete(eid) => {
+                Message::Binding(Operation::Delete(eid)) => {
                     self.binding.remove(&eid);
+                }
+                Message::Camera(Operation::Upsert(eid, camera)) => {
+                    self.cameras.insert(eid, camera);
+                }
+                Message::Camera(Operation::Delete(eid)) => {
+                    self.cameras.remove(&eid);
+                }
+                Message::Slot(Operation::Upsert(eid, _)) => {
+                    self.primary = Some(eid);
+                }
+                Message::Slot(Operation::Delete(eid)) => {
+                    if self.primary == Some(eid) {
+                        self.primary = None;
+                    }
                 }
             }
         }
 
-        if self.binding_input.closed() {
+        if self.render_input.closed() {
             None
         } else {
-            Some(self.binding_input.signal())
+            Some(self.render_input.signal())
         }
     }
 
     fn sync_graphics(&mut self) -> Option<Signal> {
+        use graphics::Message;
         while let Some(msg) = self.graphics.0.try_recv() {
             match msg {
                 Message::Vertex(Operation::Upsert(eid, vd)) => {
@@ -315,7 +366,7 @@ impl Renderer {
         select.add(self.graphics.0.signal(), Renderer::sync_graphics);
         select.add(self.pos_input.signal(), Renderer::sync_position);
         select.add(self.scene_output.signal(), Renderer::sync_scene);
-        select.add(self.binding_input.signal(), Renderer::sync_binding);
+        select.add(self.render_input.signal(), Renderer::sync_binding);
 
         while let Some((_, cb)) = select.next() {
             if let Some(s) = cb(self) {
@@ -326,29 +377,35 @@ impl Renderer {
         self.graphics.0.next_frame();
         self.pos_input.next_frame();
         self.scene_output.next_frame();
-        self.binding_input.next_frame();
+        self.render_input.next_frame();
     }
 
     /// 
-    pub fn draw(&mut self, _: &mut fibe::Schedule, window: &mut Window, scene: Scene) {
-        self.scene = scene;
+    pub fn draw(&mut self, _: &mut fibe::Schedule, window: &mut Window) {
         self.sync();
-        let eid = Entity::new();
-        let camera = gfx_scene::Camera {
-            name: "Cam".to_string(),
-            projection: cgmath::PerspectiveFov{
-                fovy: cgmath::deg(90.),
-                aspect: 4./3.,
-                near: 0.1,
-                far: 1000.
-            },
-            node: eid
+
+        let camera = if let Some(cid) = self.primary {
+            if let Some(c) = self.cameras.get(&cid) {
+                Some((gfx_scene::Camera {
+                    name: "Cam".to_string(),
+                    projection: c.0.clone(),
+                    node: cid
+                }, c.1))
+            } else {
+                None
+            }
+        } else {
+            None
         };
-        self.position.0.insert(eid, Solved(Decomposed::identity()));
-        let mut pipeline = self.pipeline.take().unwrap();
-        pipeline.render(self, &camera, window).unwrap();
-        self.pipeline = Some(pipeline);
-        window.present(&mut self.device);
+
+        if let Some((camera, scene)) = camera {
+            self.scene = scene;
+
+            let mut pipeline = self.pipeline.take().unwrap();
+            pipeline.render(self, &camera, window).unwrap();
+            self.pipeline = Some(pipeline);
+            window.present(&mut self.device);
+        }
     }
 }
 
@@ -356,5 +413,13 @@ impl Renderer {
 
 /// This holds the binding between a geometry and the material
 /// for a drawable entity
-#[derive(Copy, Clone, Hash, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct DrawBinding(pub graphics::Geometry, pub graphics::Material);
+
+///
+#[derive(Copy, Clone)]
+pub struct Camera(pub cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>, pub Scene);
+
+/// Marker for which camera is the pimary
+#[derive(Copy, Clone, Debug)]
+pub struct Primary;
