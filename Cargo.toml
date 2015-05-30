@@ -7,16 +7,16 @@ authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
 pulse="*"
 
 [dependencies.entity]
-git = "https://github.com/snowmew/entity.git"
+git = "https://github.com/csherratt/entity.git"
 
 [dependencies.parent]
-git = "https://github.com/snowmew/parent.git"
+git = "https://github.com/csherratt/parent.git"
 
 [dependencies.snowstorm]
 git = "https://github.com/csherratt/snowstorm.git"
 
 [dependencies.fibe]
-git = "https://github.com/kvark/fibe-rs.git"
+git = "https://github.com/slide-rs/fibe-rs.git"
 
 [dependencies.gfx]
 git = "https://github.com/gfx-rs/gfx-rs"
