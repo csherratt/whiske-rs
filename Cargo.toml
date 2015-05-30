@@ -4,10 +4,10 @@ version = "0.1.0"
 authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
 
 [dependencies.entity]
-git = "https://github.com/snowmew/entity.git"
+git = "https://github.com/csherratt/entity.git"
 
 [dependencies.snowstorm]
 git = "https://github.com/csherratt/snowstorm.git"
 
 [dependencies.fibe]
-git = "https://github.com/kvark/fibe-rs.git"
+git = "https://github.com/slide-rs/fibe-rs.git"
