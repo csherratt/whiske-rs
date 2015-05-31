@@ -34,15 +34,16 @@ use gfx::{
     Slice, PrimitiveType, SliceKind
 };
 use gfx::traits::FactoryExt;
-use gfx_device_gl::{Device, Resources};
+use gfx_device_gl::{Device};
 use gfx_scene::{AbstractScene, Report, Error, Context, Frustum};
 use gfx_pipeline::{Material, Transparency, forward, Pipeline};
+use gfx::device::Resources;
 
-use cgmath::{Bound, Relation, BaseFloat, Decomposed, Vector3, Quaternion, Transform};
+use cgmath::{Bound, Relation, BaseFloat, Decomposed, Vector3, Quaternion};
 
-struct GeometrySlice {
-    mesh: Mesh<Resources>,
-    slice: Slice<Resources>
+struct GeometrySlice<R: Resources> {
+    mesh: Mesh<R>,
+    slice: Slice<R>
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -54,9 +55,9 @@ impl<S: BaseFloat> Bound<S> for NullBound {
     }
 }
 
-pub struct Renderer {
-    device: Device,
-    factory: gfx_device_gl::Factory,
+pub struct Renderer<R: Resources, D, F> {
+    device: D,
+    factory: F,
 
     graphics: graphics::GraphicsSink,
     pos_input: channel::Receiver<Operation<Entity, Solved>>,
@@ -65,10 +66,10 @@ pub struct Renderer {
 
     position: Position,
 
-    vertex: HashMap<Entity, (Option<Mesh<Resources>>, Option<handle::Buffer<Resources, u32>>)>,
-    materials: HashMap<Entity, Material<Resources>>,
+    vertex: HashMap<Entity, (Option<Mesh<R>>, Option<handle::Buffer<R, u32>>)>,
+    materials: HashMap<Entity, Material<R>>,
     geometry_data: HashMap<Entity, GeometryData>,
-    geometry_slice: HashMap<Entity, GeometrySlice>,
+    geometry_slice: HashMap<Entity, GeometrySlice<R>>,
     cameras: HashMap<Entity, Camera>,
     primary: Option<Entity>,
 
@@ -77,7 +78,7 @@ pub struct Renderer {
     scene: Scene,
     scenes: HashMap<Scene, HashSet<Entity>>,
 
-    pipeline: Option<forward::Pipeline<Resources>>,
+    pipeline: Option<forward::Pipeline<R>>,
 
 }
 
@@ -94,9 +95,9 @@ impl gfx_scene::World for Position {
     }
 }
 
-impl AbstractScene<Resources> for Renderer {
+impl<R: Resources, D, F> AbstractScene<R> for Renderer<R, D, F> {
     type ViewInfo = gfx_pipeline::ViewInfo<f32>;
-    type Material = Material<Resources>;
+    type Material = Material<R>;
     type Camera = gfx_scene::Camera<cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>, Entity>;
     type Status = Report;
 
@@ -104,13 +105,13 @@ impl AbstractScene<Resources> for Renderer {
                   phase: &mut H,
                   camera: &gfx_scene::Camera<cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>, Entity>,
                   stream: &mut S) -> Result<Self::Status, Error> where
-        H: gfx_phase::AbstractPhase<Resources, Material<Resources>, gfx_pipeline::ViewInfo<f32>>,
-        S: gfx::Stream<Resources>,
+        H: gfx_phase::AbstractPhase<R, Material<R>, gfx_pipeline::ViewInfo<f32>>,
+        S: gfx::Stream<R>,
     
     {   
         let mut culler = Frustum::new();
         let drawlist = self.scenes.get(&self.scene).unwrap();
-        let items: Vec<gfx_scene::Entity<Resources, Material<Resources>, Position, NullBound>> =
+        let items: Vec<gfx_scene::Entity<R, Material<R>, Position, NullBound>> =
             drawlist.iter()
                     .filter_map(|eid| self.binding.get(eid).map(|x| (eid, x)))
                     .filter_map(|(eid, draw)| {
@@ -175,12 +176,17 @@ impl entity::WriteEntity<Entity, Camera> for RendererInput {
 }
 
 
-impl Renderer {
+impl<R, D, F> Renderer<R, D, F>
+    where R: Resources,
+          D: gfx::Device<Resources=R>,
+          F: gfx::Factory<R>
+
+{
     pub fn new(graphics: GraphicsSink,
                position: channel::Receiver<Operation<Entity, Solved>>,
                scene: SceneOutput,
-               device: Device,
-               mut factory: gfx_device_gl::Factory) -> (RendererInput, Renderer) {
+               device: D,
+               mut factory: F) -> (RendererInput, Renderer<R, D, F>) {
 
         let pipeline = forward::Pipeline::new(&mut factory);
         let (tx, rx) = channel::channel();
@@ -362,7 +368,7 @@ impl Renderer {
     }
 
     fn sync(&mut self) {
-        let mut select: SelectMap<fn(&mut Renderer) -> Option<Signal>> = SelectMap::new();
+        let mut select: SelectMap<fn(&mut Renderer<R, D, F>) -> Option<Signal>> = SelectMap::new();
         select.add(self.graphics.0.signal(), Renderer::sync_graphics);
         select.add(self.pos_input.signal(), Renderer::sync_position);
         select.add(self.scene_output.signal(), Renderer::sync_scene);
@@ -381,7 +387,7 @@ impl Renderer {
     }
 
     /// 
-    pub fn draw(&mut self, _: &mut fibe::Schedule, window: &mut Window) {
+    pub fn draw(&mut self, _: &mut fibe::Schedule, window: &mut Window<D, R>) {
         self.sync();
 
         let camera = if let Some(cid) = self.primary {

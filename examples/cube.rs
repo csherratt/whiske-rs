@@ -100,7 +100,7 @@ fn main() {
         (geo, mat)
     };
 
-    let count = 5;
+    let count = 10;
 
     let all = Scene::new();
     let xs: Vec<Scene> = (-count..count).map(|_| Scene::new()).collect();
