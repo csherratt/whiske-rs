@@ -1,8 +1,7 @@
 extern crate engine;
 extern crate fibe;
-extern crate snowstorm;
 extern crate renderer;
-extern crate position;
+extern crate transform;
 extern crate scene;
 extern crate graphics;
 extern crate parent;
@@ -12,12 +11,11 @@ extern crate cgmath;
 extern crate entity;
 extern crate future_pulse;
 
-use snowstorm::channel::*;
 use graphics::{Vertex, VertexPosTexNorm, PosTexNorm, VertexBuffer,
     Geometry, Material, Primative, KdFlat, MaterialComponent,
     GeometryData
 };
-use parent::Parent;
+use parent::{Parent, ParentInput};
 use renderer::{DrawBinding, Camera, Primary, RendererInput};
 use scene::Scene;
 use genmesh::generators::Cube;
@@ -25,9 +23,10 @@ use genmesh::{MapToVertices, Indexer, LruIndexer};
 use genmesh::{Vertices, Triangulate, Quad};
 use cgmath::{Vector3, EuclideanVector, Decomposed, Transform, PerspectiveFov};
 use future_pulse::Future;
+use transform::TransformInput;
 
-use entity::{Entity, Operation};
-use position::Delta;
+use entity::Entity;
+use transform::Delta;
 
 fn build_vectors<T: Iterator<Item=Quad<VertexPosTexNorm>>>(input: T)
     -> (Vertex, Vec<u32>) {
@@ -78,27 +77,34 @@ router!{
         [Entity, DrawBinding] |
         [Entity, Camera] |
         [Entity, Primary] => renderer: RendererInput,
-        [Entity, Delta] => transform: Sender<Operation<Entity, Delta>>,
+        [Entity, Delta] => transform: TransformInput,
         [Entity, Scene] |
         [Scene, Entity] => scene: scene::SceneInput,
-        [Entity, Parent] => parent: Sender<Operation<Entity, Parent>>
+        [Entity, Parent] => parent: ParentInput
+    }
+}
+
+impl Router {
+    fn next_frame(&mut self) {
+        self.parent.next_frame();
+        self.gsrc.next_frame();
+        self.scene.next_frame();
+        self.transform.next_frame();
+        self.renderer.next_frame();
     }
 }
 
 fn main() {
     let mut engine = engine::Engine::new();
-    let (tx_parent, rx) = channel();
-    let rx_parent = parent::parent(engine.sched(), rx);
-    let (scene_input, scene_output) = scene::scene(engine.sched(), rx_parent.clone());
-
-    let (tx_position, rx) = channel();
-    let rx_position = position::position(engine.sched(), rx, rx_parent.clone());
+    let (pinput, poutput) = parent::parent(engine.sched());
+    let (sinput, soutput) = scene::scene(engine.sched(), poutput.clone());
+    let (tinput, toutput) = transform::transform(engine.sched(), poutput.clone());
 
     let (gsink, gsrc) = graphics::GraphicsSource::new();
 
     let (read, set) = Future::new();
     engine.start_render(|_, render, device|{
-        let (input, mut renderer) = renderer::Renderer::new(gsink, rx_position, scene_output, render, device);
+        let (input, mut renderer) = renderer::Renderer::new(gsink, toutput, soutput, render, device);
         set.set(input);
         Box::new(move |sched, stream| {
             renderer.draw(sched, stream);
@@ -108,9 +114,9 @@ fn main() {
     let mut sink = Router {
         gsrc: gsrc,
         renderer: read.get(),
-        transform: tx_position,
-        scene: scene_input,
-        parent: tx_parent
+        transform: tinput,
+        scene: sinput,
+        parent: pinput
     };
 
     let (cube, mat) = {
@@ -179,11 +185,7 @@ fn main() {
                     scenes[(i) % len]))
                   .write(&mut sink);
 
-            sink.parent.next_frame();
-            sink.gsrc.next_frame();
-            sink.scene.next_frame();
-            sink.transform.next_frame();
-            sink.renderer.next_frame();
+            sink.next_frame();
         }
     });
     engine.run();

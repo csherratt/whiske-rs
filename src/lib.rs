@@ -1,5 +1,5 @@
 extern crate entity;
-extern crate position;
+extern crate transform;
 extern crate graphics;
 extern crate scene;
 
@@ -18,7 +18,7 @@ extern crate cgmath;
 
 use std::collections::{HashMap, HashSet};
 use snowstorm::channel;
-use position::Solved;
+use transform::{Solved, TransformOutput};
 use graphics::{
     GraphicsSink, VertexData,
     Pos, PosTex, PosNorm, PosTexNorm,
@@ -60,7 +60,7 @@ pub struct Renderer<R: Resources, D, F> {
     factory: F,
 
     graphics: graphics::GraphicsSink,
-    pos_input: channel::Receiver<Operation<Entity, Solved>>,
+    transform_input: TransformOutput,
     render_input: channel::Receiver<Message>,
     scene_output: SceneOutput,
 
@@ -183,7 +183,7 @@ impl<R, D, F> Renderer<R, D, F>
 
 {
     pub fn new(graphics: GraphicsSink,
-               position: channel::Receiver<Operation<Entity, Solved>>,
+               position: TransformOutput,
                scene: SceneOutput,
                device: D,
                mut factory: F) -> (RendererInput, Renderer<R, D, F>) {
@@ -196,7 +196,7 @@ impl<R, D, F> Renderer<R, D, F>
             device: device,
             factory: factory,
             graphics: graphics,
-            pos_input: position,
+            transform_input: position,
             render_input: rx,
             position: Position(HashMap::new()),
             vertex: HashMap::new(),
@@ -352,14 +352,14 @@ impl<R, D, F> Renderer<R, D, F>
     }
 
     fn sync_position(&mut self) -> Option<Signal> {
-        for msg in self.pos_input.copy_iter(false) {
+        for msg in self.transform_input.copy_iter(false) {
             msg.write(&mut self.position.0);
         }
 
-        if self.pos_input.closed() {
+        if self.transform_input.closed() {
             None
         } else {
-            Some(self.pos_input.signal())
+            Some(self.transform_input.signal())
         }
     }
 
@@ -370,7 +370,7 @@ impl<R, D, F> Renderer<R, D, F>
     fn sync(&mut self) {
         let mut select: SelectMap<fn(&mut Renderer<R, D, F>) -> Option<Signal>> = SelectMap::new();
         select.add(self.graphics.0.signal(), Renderer::sync_graphics);
-        select.add(self.pos_input.signal(), Renderer::sync_position);
+        select.add(self.transform_input.signal(), Renderer::sync_position);
         select.add(self.scene_output.signal(), Renderer::sync_scene);
         select.add(self.render_input.signal(), Renderer::sync_binding);
 
@@ -381,7 +381,7 @@ impl<R, D, F> Renderer<R, D, F>
         }
 
         self.graphics.0.next_frame();
-        self.pos_input.next_frame();
+        self.transform_input.next_frame();
         self.scene_output.next_frame();
         self.render_input.next_frame();
     }

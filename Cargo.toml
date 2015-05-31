@@ -15,15 +15,14 @@ gfx_phase="*"
 gfx_scene="=0.2.0"
 gfx_pipeline="=0.2.0"
 
-
 [dependencies.slide-rs-engine]
 git = "https://github.com/csherratt/engine.git"
 
 [dependencies.entity]
 git = "https://github.com/csherratt/entity.git"
 
-[dependencies.position]
-git = "https://github.com/csherratt/position.git"
+[dependencies.transform]
+git = "https://github.com/csherratt/transform.git"
 
 [dependencies.graphics]
 git = "https://github.com/csherratt/graphics.git"
@@ -33,7 +32,6 @@ git = "https://github.com/csherratt/scene.git"
 
 [dependencies.snowstorm]
 git = "https://github.com/csherratt/snowstorm.git"
-
 
 [dependencies.fibe]
 git = "https://github.com/slide-rs/fibe-rs.git"
