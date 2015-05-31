@@ -137,10 +137,10 @@ impl Solved {
 }
 
 pub fn transform(sched: &mut Schedule,
-                 delta: Receiver<Operation<Entity, Delta>>,
-                 parent: Receiver<parent::Message>) -> Receiver<Operation<Entity, Solved>> {
+                 parent: Receiver<parent::Message>) -> (TransformInput, TransformOutput) {
 
     let (tx, output) = channel();
+    let (delta_input, delta) = channel();
 
     let mut select: SelectMap<fn (&mut TransformSystem) -> Option<Signal>> = SelectMap::new();
     select.add(delta.signal(), TransformSystem::handle_delta);
@@ -158,7 +158,7 @@ pub fn transform(sched: &mut Schedule,
         deltas: HashMap::new()
     }.after(signal).start(sched);
 
-    output
+    (TransformInput(delta_input), TransformOutput(output))
 }
 
 impl ResumableTask for TransformSystem {
@@ -182,5 +182,46 @@ impl ResumableTask for TransformSystem {
 
         // there is still more data to process
         WaitState::Pending(self.select.signal())
+    }
+}
+
+/// A channel to send infromation to the Transform System
+pub struct TransformInput(Sender<Operation<Entity, Delta>>);
+
+impl TransformInput {
+    pub fn next_frame(&mut self) {
+        self.0.next_frame()
+    }
+}
+
+impl entity::WriteEntity<Entity, Delta> for TransformInput {
+    fn write(&mut self, eid: Entity, delta: Delta) {
+        self.0.write(eid, delta);
+    }
+}
+
+pub struct TransformOutput(Receiver<Operation<Entity, Solved>>);
+
+impl TransformOutput {
+    pub fn recv(&mut self) -> Result<&entity::Operation<entity::Entity, Solved>, snowstorm::channel::ReceiverError> {
+        self.0.recv()
+    }
+
+    pub fn try_recv(&mut self) -> Option<&entity::Operation<entity::Entity, Solved>> {
+        self.0.try_recv()
+    }
+
+    pub fn closed(&mut self) -> bool {
+        self.0.closed()
+    }
+
+    pub fn next_frame(&mut self) -> bool {
+        self.0.next_frame()
+    }
+}
+
+impl Signals for TransformOutput {
+    fn signal(&self) -> Signal {
+        self.0.signal()
     }
 }

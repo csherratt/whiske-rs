@@ -2,6 +2,7 @@ extern crate parent;
 extern crate transform;
 extern crate fibe;
 extern crate snowstorm;
+#[macro_use(router)]
 extern crate entity;
 extern crate cgmath;
 
@@ -15,40 +16,29 @@ use cgmath::*;
 
 fn setup() -> (Frontend,
                Sink,
-               Receiver<Operation<Entity, Solved>>) {
+               TransformOutput) {
 
     let mut sched = Frontend::new();
 
     let (parent_tx, rx) = channel();
     let parent_rx = parent(&mut sched, rx);
 
-    let (transform_tx, rx) = channel();
-    let transform_rx = transform(&mut sched, rx, parent_rx);
+    let (tinput, toutput) = transform(&mut sched, parent_rx);
 
-    (sched, Sink{parent: parent_tx, transform: transform_tx}, transform_rx)
+    (sched, Sink{parent: parent_tx, transform: tinput}, toutput)
 }
 
-struct Sink {
-    parent: Sender<parent::Message>,
-    transform: Sender<Operation<Entity, Delta>>
+router! {
+    struct Sink {
+        [Entity, Parent] => parent: Sender<parent::Message>,
+        [Entity, Delta] => transform: TransformInput
+    }
 }
 
 impl Sink {
     fn next_frame(&mut self) {
         self.parent.next_frame();
-        self.transform.next_frame();        
-    }
-}
-
-impl WriteEntity<Entity, Delta> for Sink {
-    fn write(&mut self, eid: Entity, delta: Delta) {
-        self.transform.send(Operation::Upsert(eid, delta));
-    }
-}
-
-impl WriteEntity<Entity, Parent> for Sink {
-    fn write(&mut self, eid: Entity, parent: Parent) {
-        self.parent.send(Operation::Upsert(eid, parent));
+        self.transform.next_frame();
     }
 }
 
@@ -143,7 +133,7 @@ fn exit() {
     drop(front);
 }
 
-fn count(rx: &mut Receiver<Operation<Entity, Solved>>) -> usize {
+fn count(rx: &mut TransformOutput) -> usize {
     let mut count = 0;
     while let Ok(_) = rx.recv() {
         count += 1;
