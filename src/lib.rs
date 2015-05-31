@@ -13,13 +13,13 @@ use fibe::*;
 use snowstorm::channel::*;
 use cgmath::*;
 
-struct PositionSystem {
+struct TransformSystem {
     // Inputs
     delta: Receiver<Operation<Entity, Delta>>,
     parent: Receiver<parent::Message>,
 
     // input select
-    select: SelectMap<fn (&mut PositionSystem) -> Option<Signal>>,
+    select: SelectMap<fn (&mut TransformSystem) -> Option<Signal>>,
 
     // output
     output: Sender<Operation<Entity, Solved>>,
@@ -47,7 +47,7 @@ fn mark_dirty(dirty: &mut HashSet<Entity>,
     }   
 }
 
-impl PositionSystem {
+impl TransformSystem {
     fn handle_delta(&mut self) -> Option<Signal> {
         while let Some(op) = self.delta.try_recv().map(|x| x.clone()) {
             match op {
@@ -136,18 +136,18 @@ impl Solved {
     }
 }
 
-pub fn position(sched: &mut Schedule,
-                delta: Receiver<Operation<Entity, Delta>>,
-                parent: Receiver<parent::Message>) -> Receiver<Operation<Entity, Solved>> {
+pub fn transform(sched: &mut Schedule,
+                 delta: Receiver<Operation<Entity, Delta>>,
+                 parent: Receiver<parent::Message>) -> Receiver<Operation<Entity, Solved>> {
 
     let (tx, output) = channel();
 
-    let mut select: SelectMap<fn (&mut PositionSystem) -> Option<Signal>> = SelectMap::new();
-    select.add(delta.signal(), PositionSystem::handle_delta);
-    select.add(parent.signal(), PositionSystem::handle_parent);
+    let mut select: SelectMap<fn (&mut TransformSystem) -> Option<Signal>> = SelectMap::new();
+    select.add(delta.signal(), TransformSystem::handle_delta);
+    select.add(parent.signal(), TransformSystem::handle_parent);
     let signal = select.signal();
 
-    PositionSystem {
+    TransformSystem {
         delta: delta,
         parent: parent,
         select: select,
@@ -161,7 +161,7 @@ pub fn position(sched: &mut Schedule,
     output
 }
 
-impl ResumableTask for PositionSystem {
+impl ResumableTask for TransformSystem {
     fn resume(&mut self, _: &mut Schedule) -> WaitState {
         if let Some((_, cb)) = self.select.try_next() {
             if let Some(sig) = cb(self) {
@@ -176,8 +176,8 @@ impl ResumableTask for PositionSystem {
             }
             self.output.next_frame();
 
-            self.select.add(self.delta.signal(), PositionSystem::handle_delta);
-            self.select.add(self.parent.signal(), PositionSystem::handle_parent);
+            self.select.add(self.delta.signal(), TransformSystem::handle_delta);
+            self.select.add(self.parent.signal(), TransformSystem::handle_parent);
         }
 
         // there is still more data to process

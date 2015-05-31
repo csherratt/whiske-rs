@@ -1,5 +1,5 @@
 extern crate parent;
-extern crate position;
+extern crate transform;
 extern crate fibe;
 extern crate snowstorm;
 extern crate entity;
@@ -8,7 +8,7 @@ extern crate cgmath;
 use std::collections::HashMap;
 use entity::*;
 use parent::{parent, Parent};
-use position::*;
+use transform::*;
 use fibe::*;
 use snowstorm::channel::*;
 use cgmath::*;
@@ -22,27 +22,27 @@ fn setup() -> (Frontend,
     let (parent_tx, rx) = channel();
     let parent_rx = parent(&mut sched, rx);
 
-    let (position_tx, rx) = channel();
-    let position_rx = position(&mut sched, rx, parent_rx);
+    let (transform_tx, rx) = channel();
+    let transform_rx = transform(&mut sched, rx, parent_rx);
 
-    (sched, Sink{parent: parent_tx, position: position_tx}, position_rx)
+    (sched, Sink{parent: parent_tx, transform: transform_tx}, transform_rx)
 }
 
 struct Sink {
     parent: Sender<parent::Message>,
-    position: Sender<Operation<Entity, Delta>>
+    transform: Sender<Operation<Entity, Delta>>
 }
 
 impl Sink {
     fn next_frame(&mut self) {
         self.parent.next_frame();
-        self.position.next_frame();        
+        self.transform.next_frame();        
     }
 }
 
 impl WriteEntity<Entity, Delta> for Sink {
     fn write(&mut self, eid: Entity, delta: Delta) {
-        self.position.send(Operation::Upsert(eid, delta));
+        self.transform.send(Operation::Upsert(eid, delta));
     }
 }
 
