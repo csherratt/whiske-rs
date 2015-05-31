@@ -9,7 +9,7 @@ use snowstorm::channel::{Sender, Receiver};
 use entity::{Entity, Operation, DeleteEntity};
 use fibe::{Schedule, ResumableTask, WaitState, IntoTask};
 use pulse::{Signal, Signals, SelectMap};
-use parent::Parent;
+use parent::{Parent, ParentOutput};
 
 /// This holds an abstract of a scene
 ///     A scene may have 0-N children. The children are `bound` to it.
@@ -97,7 +97,7 @@ impl Signals for SceneOutput {
 
 struct SceneSystem {
     // input
-    parents: Receiver<parent::Message>,
+    parents: ParentOutput,
     ingest: Receiver<Message>,
     select: SelectMap<fn(&mut SceneSystem) -> Option<Signal>>,
 
@@ -238,7 +238,7 @@ impl ResumableTask for SceneSystem {
 ///
 /// This will supply a SceneInput, and SceneOutput for communication
 /// into and out of the system.
-pub fn scene(sched: &mut Schedule, parents: Receiver<parent::Message>) -> (SceneInput, SceneOutput) {
+pub fn scene(sched: &mut Schedule, parents: ParentOutput) -> (SceneInput, SceneOutput) {
     let (src_tx, src_rx) = snowstorm::channel::channel();
     let mut select: SelectMap<fn(&mut SceneSystem) -> Option<Signal>> = SelectMap::new();
     select.add(parents.signal(), SceneSystem::sync_parent);
