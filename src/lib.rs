@@ -1,12 +1,13 @@
 extern crate fibe;
 extern crate snowstorm;
 extern crate entity;
+extern crate pulse;
 
 use std::collections::{HashMap, HashSet};
 use fibe::*;
 use snowstorm::channel::*;
 use entity::{Entity, WriteEntity, Operation};
-
+use pulse::{Signals, Signal};
 
 pub type Message = Operation<Entity, Parent>;
 
@@ -163,5 +164,11 @@ impl ParentOutput {
     ///
     pub fn try_recv(&mut self) -> Option<&Message> {
         self.0.try_recv()
+    }
+}
+
+impl pulse::Signals for ParentOutput {
+    fn signal(&self) -> Signal {
+        self.0.signal()
     }
 }
