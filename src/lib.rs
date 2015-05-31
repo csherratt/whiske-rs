@@ -283,3 +283,14 @@ impl Scene {
     }
 }
 
+impl entity::WriteEntity<Entity, Scene> for SceneInput {
+    fn write(&mut self, eid: Entity, scene: Scene) {
+        scene.bind(eid, self);
+    }
+}
+
+impl entity::WriteEntity<Scene, Entity> for SceneInput {
+    fn write(&mut self, scene: Scene, eid: Entity) {
+        scene.bind(eid, self);
+    }
+}
