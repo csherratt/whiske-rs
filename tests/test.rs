@@ -1,25 +1,21 @@
 extern crate parent;
 extern crate fibe;
-extern crate snowstorm;
 extern crate entity;
 
 use std::collections::HashMap;
 use entity::*;
 use parent::{parent, Parent};
 use fibe::*;
-use snowstorm::channel::*;
-
 
 #[test]
 fn add_children() {
     let mut hm = HashMap::new();
     let mut sched = Frontend::new();
-    let (mut tx, rx) = channel();
+    let (mut input, mut output) = parent(&mut sched);
 
-    let mut output = parent(&mut sched, rx);
-    let root = Entity::new().bind(Parent::Root).write(&mut tx);
-    let child = Entity::new().bind(Parent::Child(root)).write(&mut tx);
-    tx.next_frame();
+    let root = Entity::new().bind(Parent::Root).write(&mut input);
+    let child = Entity::new().bind(Parent::Child(root)).write(&mut input);
+    input.next_frame();
 
     while let Ok(&msg) = output.recv() {
         msg.write(&mut hm);
@@ -33,18 +29,17 @@ fn add_children() {
 fn delete_children() {
     let mut hm = HashMap::new();
     let mut sched = Frontend::new();
-    let (mut tx, rx) = channel();
+    let (mut input, mut output) = parent(&mut sched);
 
-    let mut output = parent(&mut sched, rx);
-    let root0 = Entity::new().bind(Parent::Root).write(&mut tx);
-    let child0 = Entity::new().bind(Parent::Child(root0)).write(&mut tx);
-    root0.delete(&mut tx);
+    let root0 = Entity::new().bind(Parent::Root).write(&mut input);
+    let child0 = Entity::new().bind(Parent::Child(root0)).write(&mut input);
+    root0.delete(&mut input);
     
-    let root1 = Entity::new().bind(Parent::Root).write(&mut tx);
-    let child1 = Entity::new().bind(Parent::Child(root1)).write(&mut tx);
-    child1.delete(&mut tx);
+    let root1 = Entity::new().bind(Parent::Root).write(&mut input);
+    let child1 = Entity::new().bind(Parent::Child(root1)).write(&mut input);
+    child1.delete(&mut input);
     
-    tx.next_frame();
+    input.next_frame();
 
     while let Ok(&msg) = output.recv() {
         msg.write(&mut hm);
@@ -61,20 +56,19 @@ fn delete_children() {
 fn huge_number_of_children() {
     let mut hm = HashMap::new();
     let mut sched = Frontend::new();
-    let (mut tx, rx) = channel();
+    let (mut input, mut output) = parent(&mut sched);
 
-    let mut output = parent(&mut sched, rx);
-    let root = Entity::new().bind(Parent::Root).write(&mut tx);
+    let root = Entity::new().bind(Parent::Root).write(&mut input);
     let mut parent = root;
 
     let mut children = Vec::new();
     for _ in 0..1_000 {
-        let child = Entity::new().bind(Parent::Child(parent)).write(&mut tx);
+        let child = Entity::new().bind(Parent::Child(parent)).write(&mut input);
         parent = child;
         children.push(child);
     }
 
-    tx.next_frame();
+    input.next_frame();
     while let Ok(&msg) = output.recv() {
         msg.write(&mut hm);
     }
@@ -87,8 +81,8 @@ fn huge_number_of_children() {
         parent = *child;
     }
 
-    root.delete(&mut tx);
-    tx.next_frame();
+    root.delete(&mut input);
+    input.next_frame();
     while let Ok(&msg) = output.recv() {
         msg.write(&mut hm);
     }

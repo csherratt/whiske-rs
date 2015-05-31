@@ -103,15 +103,60 @@ pub enum Parent {
 }
 
 /// The `parent` system takes and input of parent child bindings
-///
-pub fn parent(sched: &mut Schedule, input: Receiver<Message>) -> Receiver<Message> {
-    let (tx, rx) = channel();
-    let signal = input.signal();
+pub fn parent(sched: &mut Schedule) -> (ParentInput, ParentOutput) {
+    let (tx_ingest, rx_ingest) = channel();
+    let (tx_engest, rx_engest) = channel();
+
+    let signal = rx_ingest.signal();
+
     ParentSystem {
-        input: input,
-        output: tx,
+        input: rx_ingest,
+        output: tx_engest,
         child_to_parent: HashMap::new(),
         parent_to_children: HashMap::new()
     }.after(signal).start(sched);
-    rx
+    
+    (ParentInput(tx_ingest), ParentOutput(rx_engest))
+}
+
+#[derive(Clone)]
+pub struct ParentInput(Sender<Message>);
+
+impl ParentInput {
+    /// Migrate to the next frame
+    pub fn next_frame(&mut self) {
+        self.0.next_frame()
+    }
+}
+
+impl entity::WriteEntity<Entity, Parent> for ParentInput {
+    fn write(&mut self, eid: Entity, value: Parent) {
+        self.0.write(eid, value);
+    }
+}
+
+impl entity::DeleteEntity<Entity> for ParentInput {
+    fn delete(&mut self, eid: Entity) {
+        self.0.delete(eid);
+    }
+}
+
+#[derive(Clone)]
+pub struct ParentOutput(Receiver<Message>);
+
+impl ParentOutput {
+    /// Migrate to the next frame
+    pub fn next_frame(&mut self) -> bool {
+        self.0.next_frame()
+    }
+
+    ///
+    pub fn recv(&mut self) -> Result<&Message, snowstorm::channel::ReceiverError> {
+        self.0.recv()
+    }
+
+    ///
+    pub fn try_recv(&mut self) -> Option<&Message> {
+        self.0.try_recv()
+    }
 }
