@@ -12,8 +12,8 @@ gfx_device_gl="*"
 cgmath="*"
 draw_queue="*"
 gfx_phase="*"
-gfx_scene="*"
-gfx_pipeline="*"
+gfx_scene="=0.2.0"
+gfx_pipeline="=0.2.0"
 
 
 [dependencies.slide-rs-engine]

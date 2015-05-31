@@ -8,14 +8,17 @@ extern crate graphics;
 extern crate parent;
 extern crate genmesh;
 extern crate cgmath;
+#[macro_use(router)]
 extern crate entity;
 extern crate future_pulse;
 
 use snowstorm::channel::*;
 use graphics::{Vertex, VertexPosTexNorm, PosTexNorm, VertexBuffer,
-    Geometry, Material, Primative, KdFlat
+    Geometry, Material, Primative, KdFlat, MaterialComponent,
+    GeometryData
 };
-use renderer::{DrawBinding, Camera, Primary};
+use parent::Parent;
+use renderer::{DrawBinding, Camera, Primary, RendererInput};
 use scene::Scene;
 use genmesh::generators::Cube;
 use genmesh::{MapToVertices, Indexer, LruIndexer};
@@ -23,7 +26,7 @@ use genmesh::{Vertices, Triangulate, Quad};
 use cgmath::{Vector3, EuclideanVector, Decomposed, Transform, PerspectiveFov};
 use future_pulse::Future;
 
-use entity::Entity;
+use entity::{Entity, Operation};
 use position::Delta;
 
 fn build_vectors<T: Iterator<Item=Quad<VertexPosTexNorm>>>(input: T)
@@ -66,16 +69,32 @@ fn build_vectors<T: Iterator<Item=Quad<VertexPosTexNorm>>>(input: T)
     (PosTexNorm(mesh_data), index)
 }
 
+router!{
+    struct Router {
+        [VertexBuffer, Vertex] |
+        [VertexBuffer, Vec<u32>] |
+        [Material, MaterialComponent] |
+        [Geometry, GeometryData] => gsrc: graphics::GraphicsSource,
+        [Entity, DrawBinding] |
+        [Entity, Camera] |
+        [Entity, Primary] => renderer: RendererInput,
+        [Entity, Delta] => transform: Sender<Operation<Entity, Delta>>,
+        [Entity, Scene] |
+        [Scene, Entity] => scene: scene::SceneInput,
+        [Entity, Parent] => parent: Sender<Operation<Entity, Parent>>
+    }
+}
+
 fn main() {
     let mut engine = engine::Engine::new();
-    let (mut tx_parent, rx) = channel();
+    let (tx_parent, rx) = channel();
     let rx_parent = parent::parent(engine.sched(), rx);
-    let (mut scene_input, scene_output) = scene::scene(engine.sched(), rx_parent.clone());
+    let (scene_input, scene_output) = scene::scene(engine.sched(), rx_parent.clone());
 
-    let (mut tx_position, rx) = channel();
+    let (tx_position, rx) = channel();
     let rx_position = position::position(engine.sched(), rx, rx_parent.clone());
 
-    let (gsink, mut gsrc) = graphics::GraphicsSource::new();
+    let (gsink, gsrc) = graphics::GraphicsSource::new();
 
     let (read, set) = Future::new();
     engine.start_render(|_, render, device|{
@@ -85,7 +104,14 @@ fn main() {
             renderer.draw(sched, stream);
         })
     });
-    let mut render_input = read.get();
+
+    let mut sink = Router {
+        gsrc: gsrc,
+        renderer: read.get(),
+        transform: tx_position,
+        scene: scene_input,
+        parent: tx_parent
+    };
 
     let (cube, mat) = {
         let (cube_v, cube_i) = build_vectors(
@@ -94,9 +120,9 @@ fn main() {
             })
         );
 
-        let vb = VertexBuffer::new().bind(cube_v).bind_index(cube_i).write(&mut gsrc);
-        let geo = Geometry::new().bind(vb.geometry(Primative::Triangle)).write(&mut gsrc);
-        let mat = Material::new().bind(KdFlat([1., 0., 0.])).write(&mut gsrc);
+        let vb = VertexBuffer::new().bind(cube_v).bind_index(cube_i).write(&mut sink);
+        let geo = Geometry::new().bind(vb.geometry(Primative::Triangle)).write(&mut sink);
+        let mat = Material::new().bind(KdFlat([1., 0., 0.])).write(&mut sink);
         (geo, mat)
     };
 
@@ -110,23 +136,23 @@ fn main() {
     for (xi, x) in (-count..count).enumerate() {
         for (yi, y) in (-count..count).enumerate() {
             for (zi, z) in (-count..count).enumerate() {
-                let eid = Entity::new().bind(DrawBinding(cube, mat)).write(&mut render_input);
+
                 let mut pos = Delta(Decomposed::identity());
                 pos.0.disp.x = x as f32 * 5.;
                 pos.0.disp.y = y as f32 * 5.;
                 pos.0.disp.z = z as f32 * 5.;
-                eid.bind(pos).write(&mut tx_position);
 
-                all.bind(eid, &mut scene_input);
-                xs[xi].bind(eid, &mut scene_input);
-                ys[yi].bind(eid, &mut scene_input);
-                zs[zi].bind(eid, &mut scene_input);
+                Entity::new()
+                       .bind(DrawBinding(cube, mat))
+                       .bind(pos)
+                       .bind(all)
+                       .bind(xs[xi])
+                       .bind(ys[yi])
+                       .bind(zs[zi])
+                       .write(&mut sink);
             }
         }
     }
-
-    let eid = Entity::new().bind(DrawBinding(cube, mat)).write(&mut render_input);
-    eid.bind(Delta(Decomposed::identity())).write(&mut tx_position);
 
     let mut i = 0;
     let mut scenes: Vec<Scene> = xs.into_iter().chain(ys.into_iter()).chain(zs.into_iter()).collect();
@@ -141,8 +167,8 @@ fn main() {
 
             i += 1;
             let len = scenes.len();
-            camera.bind(Delta(Decomposed::identity())).write(&mut tx_position);
-            camera.bind(Primary)
+            camera.bind(Delta(Decomposed::identity()))
+                  .bind(Primary)
                   .bind(Camera(
                     PerspectiveFov {
                         fovy: cgmath::deg(90.),
@@ -150,14 +176,14 @@ fn main() {
                         near: 0.1,
                         far: 1000.
                     },
-                    scenes[(i / 16) % len]
-            )).write(&mut render_input);
+                    scenes[(i) % len]))
+                  .write(&mut sink);
 
-            tx_parent.next_frame();
-            tx_position.next_frame();
-            gsrc.next_frame();
-            scene_input.next_frame();
-            render_input.next_frame();
+            sink.parent.next_frame();
+            sink.gsrc.next_frame();
+            sink.scene.next_frame();
+            sink.transform.next_frame();
+            sink.renderer.next_frame();
         }
     });
     engine.run();
