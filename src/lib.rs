@@ -8,7 +8,7 @@ extern crate pulse;
 use std::collections::{HashMap, HashSet};
 use pulse::{SelectMap, Signals, Signal};
 use entity::*;
-use parent::{parent, Parent};
+use parent::{parent, Parent, ParentOutput};
 use fibe::*;
 use snowstorm::channel::*;
 use cgmath::*;
@@ -16,7 +16,7 @@ use cgmath::*;
 struct TransformSystem {
     // Inputs
     delta: Receiver<Operation<Entity, Delta>>,
-    parent: Receiver<parent::Message>,
+    parent: ParentOutput,
 
     // input select
     select: SelectMap<fn (&mut TransformSystem) -> Option<Signal>>,
@@ -137,7 +137,7 @@ impl Solved {
 }
 
 pub fn transform(sched: &mut Schedule,
-                 parent: Receiver<parent::Message>) -> (TransformInput, TransformOutput) {
+                 parent: ParentOutput) -> (TransformInput, TransformOutput) {
 
     let (tx, output) = channel();
     let (delta_input, delta) = channel();
@@ -186,6 +186,7 @@ impl ResumableTask for TransformSystem {
 }
 
 /// A channel to send infromation to the Transform System
+#[derive(Clone)]
 pub struct TransformInput(Sender<Operation<Entity, Delta>>);
 
 impl TransformInput {
@@ -200,6 +201,7 @@ impl entity::WriteEntity<Entity, Delta> for TransformInput {
     }
 }
 
+#[derive(Clone)]
 pub struct TransformOutput(Receiver<Operation<Entity, Solved>>);
 
 impl TransformOutput {

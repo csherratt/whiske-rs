@@ -8,7 +8,7 @@ extern crate cgmath;
 
 use std::collections::HashMap;
 use entity::*;
-use parent::{parent, Parent};
+use parent::{parent, Parent, ParentInput};
 use transform::*;
 use fibe::*;
 use snowstorm::channel::*;
@@ -20,17 +20,15 @@ fn setup() -> (Frontend,
 
     let mut sched = Frontend::new();
 
-    let (parent_tx, rx) = channel();
-    let parent_rx = parent(&mut sched, rx);
+    let (pinput, poutput) = parent(&mut sched);
+    let (tinput, toutput) = transform(&mut sched, poutput);
 
-    let (tinput, toutput) = transform(&mut sched, parent_rx);
-
-    (sched, Sink{parent: parent_tx, transform: tinput}, toutput)
+    (sched, Sink{parent: pinput, transform: tinput}, toutput)
 }
 
 router! {
     struct Sink {
-        [Entity, Parent] => parent: Sender<parent::Message>,
+        [Entity, Parent] => parent: ParentInput,
         [Entity, Delta] => transform: TransformInput
     }
 }
