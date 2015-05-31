@@ -220,6 +220,10 @@ impl TransformOutput {
     pub fn next_frame(&mut self) -> bool {
         self.0.next_frame()
     }
+
+    pub fn copy_iter<'a>(&'a mut self, block: bool) -> CopyIter<'a, entity::Operation<entity::Entity, Solved>> {
+        self.0.copy_iter(block)
+    }
 }
 
 impl Signals for TransformOutput {
