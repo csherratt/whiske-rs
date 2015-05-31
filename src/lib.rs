@@ -150,6 +150,11 @@ impl ParentOutput {
         self.0.next_frame()
     }
 
+    /// Check if there is data from the future
+    pub fn closed(&mut self) -> bool {
+        self.0.closed()
+    }
+
     ///
     pub fn recv(&mut self) -> Result<&Message, snowstorm::channel::ReceiverError> {
         self.0.recv()
