@@ -2,15 +2,18 @@ extern crate entity;
 extern crate transform;
 extern crate graphics;
 extern crate scene;
-
 extern crate snowstorm;
 extern crate fibe;
+
 #[macro_use]
 extern crate gfx;
 extern crate gfx_phase;
 extern crate gfx_scene;
 extern crate gfx_device_gl;
 extern crate gfx_pipeline;
+extern crate gfx_text;
+extern crate gfx_debug_draw;
+
 extern crate engine;
 extern crate draw_queue;
 extern crate pulse;
@@ -33,7 +36,7 @@ use gfx::{
     Mesh, handle, BufferRole, Factory,
     Slice, PrimitiveType, SliceKind
 };
-use gfx::traits::FactoryExt;
+use gfx::traits::{FactoryExt, Stream};
 use gfx_device_gl::{Device};
 use gfx_scene::{AbstractScene, Report, Error, Context, Frustum};
 use gfx_pipeline::{Material, Transparency, forward, Pipeline};
@@ -55,7 +58,7 @@ impl<S: BaseFloat> Bound<S> for NullBound {
     }
 }
 
-pub struct Renderer<R: Resources, D, F> {
+pub struct Renderer<R: Resources, D, F: Factory<R>> {
     device: D,
     factory: F,
 
@@ -71,6 +74,8 @@ pub struct Renderer<R: Resources, D, F> {
     geometry_data: HashMap<Entity, GeometryData>,
     geometry_slice: HashMap<Entity, GeometrySlice<R>>,
     cameras: HashMap<Entity, Camera>,
+    debug_text: HashMap<Entity, DebugText>,
+
     primary: Option<Entity>,
 
     binding: HashMap<Entity, DrawBinding>,
@@ -79,6 +84,9 @@ pub struct Renderer<R: Resources, D, F> {
     scenes: HashMap<Scene, HashSet<Entity>>,
 
     pipeline: Option<forward::Pipeline<R>>,
+
+    // debug
+    debug: gfx_debug_draw::DebugRenderer<R, F>
 
 }
 
@@ -128,9 +136,7 @@ impl<R: gfx::Resources, M> gfx_scene::Entity<R, M> for MaterializedEntity<R, M> 
     fn get_fragments(&self) -> &[gfx_scene::Fragment<R, M>] { &self.fragments[..] }
 }
 
-
-
-impl<R: Resources, D, F> AbstractScene<R> for Renderer<R, D, F> {
+impl<R: Resources, D, F: Factory<R>> AbstractScene<R> for Renderer<R, D, F> {
     type ViewInfo = gfx_pipeline::ViewInfo<f32>;
     type Material = Material<R>;
     type Camera = MaterializedCamera;
@@ -176,11 +182,12 @@ impl<R: Resources, D, F> AbstractScene<R> for Renderer<R, D, F> {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub enum Message {
     Binding(Operation<Entity, DrawBinding>),
     Camera(Operation<Entity, Camera>),
-    Slot(Operation<Entity, Primary>)
+    Slot(Operation<Entity, Primary>),
+    DebugText(Operation<Entity, DebugText>)
 }
 
 pub struct RendererInput(pub channel::Sender<Message>);
@@ -209,11 +216,16 @@ impl entity::WriteEntity<Entity, Camera> for RendererInput {
     }
 }
 
+impl entity::WriteEntity<Entity, DebugText> for RendererInput {
+    fn write(&mut self, eid: Entity, value: DebugText) {
+        self.0.send(Message::DebugText(Operation::Upsert(eid, value)))
+    }
+}
 
 impl<R, D, F> Renderer<R, D, F>
     where R: Resources,
           D: gfx::Device<Resources=R>,
-          F: gfx::Factory<R>
+          F: gfx::Factory<R>+Clone
 
 {
     pub fn new(graphics: GraphicsSink,
@@ -224,6 +236,11 @@ impl<R, D, F> Renderer<R, D, F>
 
         let pipeline = forward::Pipeline::new(&mut factory);
         let (tx, rx) = channel::channel();
+
+        let text = gfx_text::new(factory.clone()).unwrap();
+        let debug = gfx_debug_draw::DebugRenderer::new(
+            factory.clone(), text, 16
+        ).unwrap();
 
         (RendererInput(tx),
          Renderer {
@@ -238,12 +255,14 @@ impl<R, D, F> Renderer<R, D, F>
             geometry_data: HashMap::new(),
             geometry_slice: HashMap::new(),
             binding: HashMap::new(),
+            debug_text: HashMap::new(),
             pipeline: Some(pipeline.unwrap()),
             scenes: HashMap::new(),
             scene_output: scene,
             scene: Scene::new(),
             primary: None,
-            cameras: HashMap::new()
+            cameras: HashMap::new(),
+            debug: debug
         })
     }
 
@@ -341,6 +360,12 @@ impl<R, D, F> Renderer<R, D, F>
                     if self.primary == Some(eid) {
                         self.primary = None;
                     }
+                }
+                Message::DebugText(Operation::Upsert(eid, text)) => {
+                    self.debug_text.insert(eid, text);
+                }
+                Message::DebugText(Operation::Delete(eid)) => {
+                    self.debug_text.remove(&eid);
                 }
             }
         }
@@ -446,6 +471,13 @@ impl<R, D, F> Renderer<R, D, F>
             let mut pipeline = self.pipeline.take().unwrap();
             pipeline.render(self, &camera, window).unwrap();
             self.pipeline = Some(pipeline);
+
+            for (_, text) in self.debug_text.iter() {
+                self.debug.draw_text_on_screen(
+                    &text.text, text.start, text.color
+                );
+            }
+            self.debug.render(window, [[0.0; 4]; 4]).unwrap();
             window.present(&mut self.device);
         }
     }
@@ -465,3 +497,12 @@ pub struct Camera(pub cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>, pub Scene);
 /// Marker for which camera is the pimary
 #[derive(Copy, Clone, Debug)]
 pub struct Primary;
+
+#[derive(Clone, Debug)]
+pub struct DebugText{
+    pub text: String,
+    pub start: [i32; 2],
+    pub color: [f32; 4]
+}
+
+
