@@ -45,5 +45,6 @@ git = "https://github.com/csherratt/parent.git"
 [dev-dependencies.no_clip]
 git = "https://github.com/csherratt/no_clip.git"
 
-[dev-dependencies]
-genmesh = "*"
+[dev-dependencies.std_graphics]
+git = "https://github.com/whiske-rs/std_graphics.git"
+

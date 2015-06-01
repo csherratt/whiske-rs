@@ -84,17 +84,6 @@ pub struct Renderer<R: Resources, D, F> {
 
 pub struct Position(pub HashMap<Entity, Solved>);
 
-/*impl gfx_scene::World for Position {
-    type Scalar = f32;
-    type Transform = Decomposed<f32, Vector3<f32>, Quaternion<f32>>;
-    type NodePtr = Entity;
-    type SkeletonPtr = ();
-
-    fn get_transform(&self, node: &Entity) -> Decomposed<f32, Vector3<f32>, Quaternion<f32>> {
-        self.0.get(node).expect("Transform not found").0
-    }
-}*/
-
 pub struct MaterializedCamera {
     transform: Decomposed<f32, Vector3<f32>, Quaternion<f32>>,
     projection: cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>,
