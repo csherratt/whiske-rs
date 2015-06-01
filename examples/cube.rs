@@ -100,7 +100,6 @@ fn main() {
     let (pinput, poutput) = parent::parent(engine.sched());
     let (sinput, soutput) = scene::scene(engine.sched(), poutput.clone());
     let (tinput, toutput) = transform::transform(engine.sched(), poutput.clone());
-
     let (gsink, gsrc) = graphics::GraphicsSource::new();
 
     let (read, set) = Future::new();

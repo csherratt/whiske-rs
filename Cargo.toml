@@ -12,8 +12,8 @@ gfx_device_gl="*"
 cgmath="*"
 draw_queue="*"
 gfx_phase="*"
-gfx_scene="=0.2.0"
-gfx_pipeline="=0.2.0"
+gfx_scene="0.3.0"
+gfx_pipeline="0.2.1"
 
 [dependencies.slide-rs-engine]
 git = "https://github.com/csherratt/engine.git"

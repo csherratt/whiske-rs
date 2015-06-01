@@ -39,7 +39,7 @@ use gfx_scene::{AbstractScene, Report, Error, Context, Frustum};
 use gfx_pipeline::{Material, Transparency, forward, Pipeline};
 use gfx::device::Resources;
 
-use cgmath::{Bound, Relation, BaseFloat, Decomposed, Vector3, Quaternion};
+use cgmath::{Bound, Relation, Transform, BaseFloat, Decomposed, Vector3, Quaternion};
 
 struct GeometrySlice<R: Resources> {
     mesh: Mesh<R>,
@@ -47,7 +47,7 @@ struct GeometrySlice<R: Resources> {
 }
 
 #[derive(Copy, Clone, Debug)]
-struct NullBound;
+pub struct NullBound;
 
 impl<S: BaseFloat> Bound<S> for NullBound {
     fn relate_plane(&self, _p: &cgmath::Plane<S>) -> Relation {
@@ -84,7 +84,7 @@ pub struct Renderer<R: Resources, D, F> {
 
 pub struct Position(pub HashMap<Entity, Solved>);
 
-impl gfx_scene::World for Position {
+/*impl gfx_scene::World for Position {
     type Scalar = f32;
     type Transform = Decomposed<f32, Vector3<f32>, Quaternion<f32>>;
     type NodePtr = Entity;
@@ -93,17 +93,63 @@ impl gfx_scene::World for Position {
     fn get_transform(&self, node: &Entity) -> Decomposed<f32, Vector3<f32>, Quaternion<f32>> {
         self.0.get(node).expect("Transform not found").0
     }
+}*/
+
+pub struct MaterializedCamera {
+    transform: Decomposed<f32, Vector3<f32>, Quaternion<f32>>,
+    projection: cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>,
 }
+
+impl gfx_scene::Node for MaterializedCamera {
+    type Transform = Decomposed<f32, Vector3<f32>, Quaternion<f32>>;
+
+    fn get_transform(&self) -> Decomposed<f32, Vector3<f32>, Quaternion<f32>> {
+        self.transform
+    }
+}
+
+impl gfx_scene::Camera<f32> for MaterializedCamera {
+    type Projection = cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>;
+
+    fn get_projection(&self) -> cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>{
+        self.projection
+    }
+}
+
+pub struct MaterializedEntity<R: gfx::Resources, M> {
+    transform: Decomposed<f32, Vector3<f32>, Quaternion<f32>>,
+    mesh: gfx::Mesh<R>,
+    fragments: [gfx_scene::Fragment<R, M>; 1]
+
+}
+
+impl<R: gfx::Resources, M> gfx_scene::Node for MaterializedEntity<R, M> {
+    type Transform = Decomposed<f32, Vector3<f32>, Quaternion<f32>>;
+
+    fn get_transform(&self) -> Decomposed<f32, Vector3<f32>, Quaternion<f32>> {
+        self.transform
+    }
+}
+
+impl<R: gfx::Resources, M> gfx_scene::Entity<R, M> for MaterializedEntity<R, M> {
+    type Bound = NullBound;
+
+    fn get_bound(&self) -> NullBound { NullBound }
+    fn get_mesh(&self) -> &gfx::Mesh<R> { &self.mesh }
+    fn get_fragments(&self) -> &[gfx_scene::Fragment<R, M>] { &self.fragments[..] }
+}
+
+
 
 impl<R: Resources, D, F> AbstractScene<R> for Renderer<R, D, F> {
     type ViewInfo = gfx_pipeline::ViewInfo<f32>;
     type Material = Material<R>;
-    type Camera = gfx_scene::Camera<cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>, Entity>;
+    type Camera = MaterializedCamera;
     type Status = Report;
 
     fn draw<H, S>(&self,
                   phase: &mut H,
-                  camera: &gfx_scene::Camera<cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>, Entity>,
+                  camera: &MaterializedCamera,
                   stream: &mut S) -> Result<Self::Status, Error> where
         H: gfx_phase::AbstractPhase<R, Material<R>, gfx_pipeline::ViewInfo<f32>>,
         S: gfx::Stream<R>,
@@ -113,22 +159,19 @@ impl<R: Resources, D, F> AbstractScene<R> for Renderer<R, D, F> {
         let empty = HashSet::new();
         let drawlist = self.scenes.get(&self.scene)
                                   .unwrap_or_else(|| &empty);
-        let items: Vec<gfx_scene::Entity<R, Material<R>, Position, NullBound>> =
+        let items: Vec<MaterializedEntity<R, Material<R>>> =
             drawlist.iter()
                     .filter_map(|eid| self.binding.get(eid).map(|x| (eid, x)))
                     .filter_map(|(eid, draw)| {
 
             match (self.geometry_slice.get(&(draw.0).0),
-                   self.materials.get(&(draw.1).0)) {
-                (Some(a), Some(b)) => {
-                    Some(gfx_scene::Entity{
-                        name: "".to_string(),
-                        visible: true,
+                   self.materials.get(&(draw.1).0),
+                   self.position.0.get(&eid)) {
+                (Some(a), Some(b), Some(c)) => {
+                    Some(MaterializedEntity{
+                        transform: c.0,
                         mesh: a.mesh.clone(),
-                        node: *eid,
-                        skeleton: None,
-                        bound: NullBound,
-                        fragments: vec![gfx_scene::Fragment{
+                        fragments: [gfx_scene::Fragment{
                             material: b.clone(),
                             slice: a.slice.clone()
                         }]
@@ -139,7 +182,7 @@ impl<R: Resources, D, F> AbstractScene<R> for Renderer<R, D, F> {
             }
         }).collect();
 
-        Context::new(&self.position, &mut culler, camera)
+        Context::new(&mut culler, camera)
                 .draw(items.iter(), phase, stream)
     }
 }
@@ -394,10 +437,12 @@ impl<R, D, F> Renderer<R, D, F>
 
         let camera = if let Some(cid) = self.primary {
             if let Some(c) = self.cameras.get(&cid) {
-                Some((gfx_scene::Camera {
-                    name: "Cam".to_string(),
+                Some((MaterializedCamera {
                     projection: c.0.clone(),
-                    node: cid
+                    transform: self.position.0
+                                   .get(&cid)
+                                   .map(|x| x.0.clone())
+                                   .unwrap_or_else(|| Decomposed::identity())
                 }, c.1))
             } else {
                 None
