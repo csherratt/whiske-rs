@@ -42,5 +42,8 @@ git = "https://github.com/csherratt/future_pulse.git"
 [dev-dependencies.parent]
 git = "https://github.com/csherratt/parent.git"
 
+[dev-dependencies.no_clip]
+git = "https://github.com/csherratt/no_clip.git"
+
 [dev-dependencies]
 genmesh = "*"

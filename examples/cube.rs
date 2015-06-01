@@ -10,6 +10,7 @@ extern crate cgmath;
 #[macro_use(router)]
 extern crate entity;
 extern crate future_pulse;
+extern crate no_clip;
 
 use graphics::{Vertex, VertexPosTexNorm, PosTexNorm, VertexBuffer,
     Geometry, Material, Primative, KdFlat, MaterialComponent,
@@ -138,6 +139,7 @@ fn main() {
     let xs: Vec<Scene> = (-count..count).map(|_| Scene::new()).collect();
     let ys: Vec<Scene> = (-count..count).map(|_| Scene::new()).collect();
     let zs: Vec<Scene> = (-count..count).map(|_| Scene::new()).collect();
+    let shell: Vec<Scene> = (0..(count*2)).map(|_| Scene::new()).collect();
 
     for (xi, x) in (-count..count).enumerate() {
         for (yi, y) in (-count..count).enumerate() {
@@ -148,6 +150,8 @@ fn main() {
                 pos.0.disp.y = y as f32 * 5.;
                 pos.0.disp.z = z as f32 * 5.;
 
+                let layer = ((x*x+y*y+z*z) as f32).sqrt() as usize;
+
                 Entity::new()
                        .bind(DrawBinding(cube, mat))
                        .bind(pos)
@@ -155,26 +159,32 @@ fn main() {
                        .bind(xs[xi])
                        .bind(ys[yi])
                        .bind(zs[zi])
+                       .bind(shell[layer])
                        .write(&mut sink);
             }
         }
     }
 
     let mut i = 0;
-    let mut scenes: Vec<Scene> = xs.into_iter().chain(ys.into_iter()).chain(zs.into_iter()).collect();
-    scenes.push(all);
+    let scenes: Vec<Scene> = xs.into_iter()
+                               .chain(ys.into_iter())
+                               .chain(zs.into_iter())
+                               .chain(shell.into_iter()).collect();
 
     let camera = Entity::new();
+
+    let trans = sink.transform.clone();
+    engine.start_input_processor(move |sched, msg| {
+        no_clip::no_clip(sched, camera, Decomposed::identity(), msg, trans);
+    });
+
     engine.start_input_processor(move |_, mut msg| {
         loop {
-            // TODO, fibers~
-            while let Ok(_) = msg.recv() {}
+            for _ in msg.copy_iter(true) {}
             msg.next_frame();
 
             i += 1;
-            let len = scenes.len();
-            camera.bind(Delta(Decomposed::identity()))
-                  .bind(Primary)
+            camera.bind(Primary)
                   .bind(Camera(
                     PerspectiveFov {
                         fovy: cgmath::deg(90.),
@@ -182,9 +192,8 @@ fn main() {
                         near: 0.1,
                         far: 1000.
                     },
-                    scenes[(i) % len]))
+                    scenes[(i / 4) % scenes.len()]))
                   .write(&mut sink);
-
             sink.next_frame();
         }
     });

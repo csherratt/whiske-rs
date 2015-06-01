@@ -110,7 +110,9 @@ impl<R: Resources, D, F> AbstractScene<R> for Renderer<R, D, F> {
     
     {   
         let mut culler = Frustum::new();
-        let drawlist = self.scenes.get(&self.scene).unwrap();
+        let empty = HashSet::new();
+        let drawlist = self.scenes.get(&self.scene)
+                                  .unwrap_or_else(|| &empty);
         let items: Vec<gfx_scene::Entity<R, Material<R>, Position, NullBound>> =
             drawlist.iter()
                     .filter_map(|eid| self.binding.get(eid).map(|x| (eid, x)))
