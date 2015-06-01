@@ -1,0 +1,25 @@
+[package]
+name = "no_clip"
+version = "0.1.0"
+authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
+
+[dependencies]
+glutin = "*"
+cgmath = "*"
+pulse = "*"
+
+[dependencies.fibe]
+git = "https://github.com/slide-rs/fibe-rs.git"
+
+[dependencies.camera]
+git = "https://github.com/csherratt/camera.git"
+
+[dependencies.entity]
+git = "https://github.com/csherratt/entity.git"
+
+[dependencies.snowstorm]
+git = "https://github.com/csherratt/snowstorm.git"
+
+[dependencies.transform]
+git = "https://github.com/csherratt/transform.git"
+
