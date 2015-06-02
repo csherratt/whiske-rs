@@ -243,7 +243,7 @@ impl StdGeometry {
                                   .bind(plane_v)
                                   .bind_index(plane_i)
                                   .write(&mut sink);
-            cube.bind(vb.geometry(Primative::Triangle)).write(&mut sink);
+            plane.bind(vb.geometry(Primative::Triangle)).write(&mut sink);
         }).start(sched));
 
         let (future, set) = Future::new();
