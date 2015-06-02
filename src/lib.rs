@@ -338,7 +338,8 @@ pub enum VertexData {
 #[derive(Clone)]
 pub enum Message {
     Vertex(Operation<Entity, VertexData>),
-    Material(Operation<Entity, MaterialComponent>),
+    MaterialFlat(Operation<Entity, MaterialComponent<[f32; 4]>>),
+    MaterialTexture(Operation<Entity, MaterialComponent<Texture>>),
     Geometry(Operation<Entity, GeometryData>),
     Texture(Operation<Entity, image::DynamicImage>)
 }
@@ -374,9 +375,17 @@ impl WriteEntity<VertexBuffer, Vec<u32>> for GraphicsSource {
     }
 }
 
-impl WriteEntity<Material, MaterialComponent> for GraphicsSource {
-    fn write(&mut self, entity: Material, data: MaterialComponent) {
-        self.0.send(Message::Material(
+impl WriteEntity<Material, MaterialComponent<[f32; 4]>> for GraphicsSource {
+    fn write(&mut self, entity: Material, data: MaterialComponent<[f32; 4]>) {
+        self.0.send(Message::MaterialFlat(
+            Operation::Upsert(entity.0, data)
+        ))
+    }
+}
+
+impl WriteEntity<Material, MaterialComponent<Texture>> for GraphicsSource {
+    fn write(&mut self, entity: Material, data: MaterialComponent<Texture>) {
+        self.0.send(Message::MaterialTexture(
             Operation::Upsert(entity.0, data)
         ))
     }

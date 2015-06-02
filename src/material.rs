@@ -37,13 +37,10 @@ impl Material {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub enum MaterialComponent {
-    KaFlat([f32; 3]),
-    KdFlat([f32; 3]),
-    KsFlat([f32; 3]),
-    /*Ka(Texture),
-    Kd(Texture),
-    Ks(Texture)*/
+pub enum MaterialComponent<T> {
+    Ka(T),
+    Kd(T),
+    Ks(T),
 }
 
 pub use self::MaterialComponent::*;
