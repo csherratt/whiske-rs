@@ -3,6 +3,8 @@ extern crate fibe;
 extern crate snowstorm;
 extern crate entity;
 extern crate pulse;
+extern crate future_pulse;
+extern crate image;
 #[macro_use]
 extern crate gfx;
 
@@ -10,8 +12,10 @@ use std::iter::FromIterator;
 use entity::*;
 use snowstorm::mpsc::*;
 pub use material::*;
+pub use texture::Texture;
 
 pub mod material;
+pub mod texture;
 
 /// A Geometry entity
 #[derive(Copy, Clone, Hash, Debug)]
@@ -21,10 +25,6 @@ pub struct Geometry(pub Entity);
 /// A handle for a vertex buffer
 #[derive(Copy, Clone, Hash, Debug)]
 pub struct VertexBuffer(pub Entity, Length);
-
-/// A handle for a texture
-//#[derive(Copy, Clone, Hash, Debug)]
-//pub struct Texture(pub Entity);
 
 impl Geometry {
     /// Creates a new entity with a new id
@@ -335,11 +335,12 @@ pub enum VertexData {
     Index(Vec<u32>)
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum Message {
     Vertex(Operation<Entity, VertexData>),
     Material(Operation<Entity, MaterialComponent>),
     Geometry(Operation<Entity, GeometryData>),
+    Texture(Operation<Entity, image::DynamicImage>)
 }
 
 #[derive(Clone)]
@@ -384,6 +385,14 @@ impl WriteEntity<Material, MaterialComponent> for GraphicsSource {
 impl WriteEntity<Geometry, GeometryData> for GraphicsSource {
     fn write(&mut self, entity: Geometry, data: GeometryData) {
         self.0.send(Message::Geometry(
+            Operation::Upsert(entity.0, data)
+        ))
+    }
+}
+
+impl WriteEntity<Texture, image::DynamicImage> for GraphicsSource {
+    fn write(&mut self, entity: Texture, data: image::DynamicImage) {
+        self.0.send(Message::Texture(
             Operation::Upsert(entity.0, data)
         ))
     }
