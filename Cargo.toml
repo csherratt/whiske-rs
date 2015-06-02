@@ -16,6 +16,7 @@ gfx_scene="0.3.0"
 gfx_pipeline="0.2.1"
 gfx_text="0.2.0"
 gfx_debug_draw="*"
+image="*"
 
 [dev-dependencies]
 time="*"

@@ -18,6 +18,7 @@ extern crate engine;
 extern crate draw_queue;
 extern crate pulse;
 extern crate cgmath;
+extern crate image;
 
 use std::collections::{HashMap, HashSet};
 use snowstorm::channel;
@@ -34,13 +35,14 @@ use entity::{Entity, Operation};
 
 use gfx::{
     Mesh, handle, BufferRole, Factory,
-    Slice, PrimitiveType, SliceKind
+    Slice, PrimitiveType, SliceKind,
 };
 use gfx::traits::{FactoryExt, Stream};
 use gfx_device_gl::{Device};
 use gfx_scene::{AbstractScene, Report, Error, Context, Frustum};
 use gfx_pipeline::{Material, Transparency, forward, Pipeline};
 use gfx::device::Resources;
+use image::GenericImage;
 
 use cgmath::{Bound, Relation, Transform, BaseFloat, Decomposed, Vector3, Quaternion};
 
@@ -73,6 +75,7 @@ pub struct Renderer<R: Resources, D, F: Factory<R>> {
     materials: HashMap<Entity, Material<R>>,
     geometry_data: HashMap<Entity, GeometryData>,
     geometry_slice: HashMap<Entity, GeometrySlice<R>>,
+    textures: HashMap<Entity, handle::Texture<R>>,
     cameras: HashMap<Entity, Camera>,
     debug_text: HashMap<Entity, DebugText>,
 
@@ -262,7 +265,8 @@ impl<R, D, F> Renderer<R, D, F>
             scene: Scene::new(),
             primary: None,
             cameras: HashMap::new(),
-            debug: debug
+            debug: debug,
+            textures: HashMap::new()
         })
     }
 
@@ -304,6 +308,60 @@ impl<R, D, F> Renderer<R, D, F>
             }
             _ => ()
         }
+    }
+
+    /// load target texture into graphics memory, and refer to it by the supplied
+    /// entity id
+    fn add_texture(&mut self,
+                   entity: Entity,
+                   texture: image::DynamicImage) {
+
+        // Flip the image
+        let texture = texture.flipv();
+
+        let format = match texture.color() {
+            image::RGB(8) => {
+                gfx::tex::Format::Unsigned(
+                    gfx::tex::Components::RGB,
+                    8,
+                    gfx::attrib::IntSubType::Normalized
+                )
+            }
+            image::RGBA(8) => {
+                gfx::tex::Format::Unsigned(
+                    gfx::tex::Components::RGBA,
+                    8,
+                    gfx::attrib::IntSubType::Normalized
+                )
+            }
+            _ => {
+                println!("Unsupported format {:?}", texture.color());
+                return;
+            }
+        };
+
+        let (width, height) = texture.dimensions();
+        let tinfo = gfx::tex::TextureInfo {
+            width: width as u16,
+            height: height as u16,
+            depth: 1,
+            levels: 1,
+            kind: gfx::tex::Kind::D2,
+            format: format,
+        };
+
+        let text = self.factory
+                       .create_texture(tinfo)
+                       .ok().expect("Failed to create texture");
+        let img_info = (*text.get_info()).into();
+        self.factory.update_texture(
+            &text,
+            &img_info,
+            &texture.raw_pixels()[..],
+            Some(gfx::tex::Kind::D2,)
+        ).unwrap();
+
+        self.textures.insert(entity, text);
     }
 
     fn add_geometry(&mut self, entity: Entity, geometry: GeometryData) {
@@ -400,6 +458,13 @@ impl<R, D, F> Renderer<R, D, F>
                     self.geometry_data.remove(&eid);
                     self.geometry_slice.remove(&eid);
                 }
+                Message::Texture(Operation::Upsert(eid, text)) => {
+                    self.add_texture(eid, text);
+                }
+                Message::Texture(Operation::Delete(eid)) => {
+                    self.textures.remove(&eid);
+                }
+
             }
         }
 
