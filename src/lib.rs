@@ -24,7 +24,7 @@ use std::collections::{HashMap, HashSet};
 use snowstorm::channel;
 use transform::{Solved, TransformOutput};
 use graphics::{
-    GraphicsSink, VertexData,
+    GraphicsSink, VertexData, Texture,
     Pos, PosTex, PosNorm, PosTexNorm,
     MaterialComponent, GeometryData, Geometry
 };
@@ -291,7 +291,7 @@ impl<R, D, F> Renderer<R, D, F>
         }
     }
 
-    fn add_material(&mut self, entity: Entity, material: MaterialComponent) {
+    fn add_material_flat(&mut self, entity: Entity, material: MaterialComponent<[f32; 4]>) {
         let dst = self.materials.entry(entity)
                       .or_insert_with(|| {
                        Material {
@@ -301,10 +301,37 @@ impl<R, D, F> Renderer<R, D, F>
                        }});
 
         match material {
-            MaterialComponent::KdFlat(x) => {
+            MaterialComponent::Kd(x) => {
                 dst.color[0] = x[0];
                 dst.color[1] = x[1];
                 dst.color[2] = x[2];
+                dst.color[3] = x[3];
+            }
+            _ => ()
+        }
+    }
+
+    fn add_material_texture(&mut self, entity: Entity, material: MaterialComponent<Texture>) {
+        let dst = self.materials.entry(entity)
+                      .or_insert_with(|| {
+                       Material {
+                            color: [1., 1., 1., 1.],
+                            texture: None,
+                            transparency: Transparency::Opaque
+                       }});
+
+        match material {
+            MaterialComponent::Kd(x) => {
+                // TODO, this is not right, we should `resolve` the textures
+                // JIT.
+                let text = if let Some(text) = self.textures.get(&x.0) {
+                    text.clone()
+                } else {
+                    println!("Texture not found");
+                    return;
+                };
+
+                dst.texture = Some((text, None));
             }
             _ => ()
         }
@@ -445,10 +472,16 @@ impl<R, D, F> Renderer<R, D, F>
                 Message::Vertex(Operation::Delete(eid)) => {
                     self.vertex.remove(&eid);
                 }
-                Message::Material(Operation::Upsert(eid, mat)) => {
-                    self.add_material(eid, mat);
+                Message::MaterialFlat(Operation::Upsert(eid, mat)) => {
+                    self.add_material_flat(eid, mat);
                 }
-                Message::Material(Operation::Delete(eid)) => {
+                Message::MaterialTexture(Operation::Upsert(eid, mat)) => {
+                    self.add_material_texture(eid, mat);
+                }
+                Message::MaterialTexture(Operation::Delete(eid)) => {
+                    self.materials.remove(&eid);
+                }
+                Message::MaterialFlat(Operation::Delete(eid)) => {
                     self.materials.remove(&eid);
                 }
                 Message::Geometry(Operation::Upsert(eid, geo)) => {

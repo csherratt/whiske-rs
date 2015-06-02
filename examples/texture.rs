@@ -1,5 +1,4 @@
 extern crate engine;
-extern crate fibe;
 extern crate renderer;
 extern crate transform;
 extern crate scene;
@@ -8,25 +7,23 @@ extern crate parent;
 #[macro_use(router)]
 extern crate entity;
 extern crate future_pulse;
-extern crate no_clip;
 extern crate std_graphics;
 extern crate cgmath;
-extern crate time;
 extern crate image;
 
+use std::path::PathBuf;
+
 use graphics::{
-    Vertex, VertexBuffer, Geometry, Texture,
+    Vertex, VertexBuffer, Geometry, Texture, Kd,
     Material, MaterialComponent, GeometryData
 };
 use parent::{Parent, ParentInput};
-use renderer::{DrawBinding, Camera, Primary, RendererInput, DebugText};
+use renderer::{DrawBinding, Camera, Primary, RendererInput};
 use scene::Scene;
-use cgmath::{Decomposed, Transform, PerspectiveFov};
+use cgmath::{Decomposed, Transform, PerspectiveFov, Quaternion, Vector3};
 use future_pulse::Future;
-use transform::TransformInput;
-
+use transform::{TransformInput, Delta};
 use entity::Entity;
-use transform::Delta;
 
 router!{
     struct Router {
@@ -38,7 +35,6 @@ router!{
         [Geometry, GeometryData] => gsrc: graphics::GraphicsSource,
         [Entity, DrawBinding] |
         [Entity, Camera] |
-        [Entity, DebugText] |
         [Entity, Primary] => renderer: RendererInput,
         [Entity, Delta] => transform: TransformInput,
         [Entity, Scene] |
@@ -81,74 +77,36 @@ fn main() {
         parent: pinput
     };
 
-    let materials = std_graphics::StdMaterials::load(&mut sink.gsrc);
+    let scene = Scene::new();
     let shapes = std_graphics::StdGeometry::load(engine.sched(), sink.gsrc.clone());
+    let texture = Texture::load(engine.sched(), PathBuf::from("assets/cat.png"), sink.gsrc.clone());
+
     let shapes = shapes.get();
-
-    let count = 10;
-
-    let all = Scene::new();
-    let xs: Vec<Scene> = (-count..count).map(|_| Scene::new()).collect();
-    let ys: Vec<Scene> = (-count..count).map(|_| Scene::new()).collect();
-    let zs: Vec<Scene> = (-count..count).map(|_| Scene::new()).collect();
-    let shell: Vec<Scene> = (0..(count*2)).map(|_| Scene::new()).collect();
-
-    for (xi, x) in (-count..count).enumerate() {
-        for (yi, y) in (-count..count).enumerate() {
-            for (zi, z) in (-count..count).enumerate() {
-
-                let mut pos = Delta(Decomposed::identity());
-                pos.0.disp.x = x as f32 * 5.;
-                pos.0.disp.y = y as f32 * 5.;
-                pos.0.disp.z = z as f32 * 5.;
-
-                let layer = ((x*x+y*y+z*z) as f32).sqrt() as usize;
-
-                Entity::new()
-                       .bind(DrawBinding(shapes.cube, materials.flat.red))
-                       .bind(pos)
-                       .bind(all)
-                       .bind(xs[xi])
-                       .bind(ys[yi])
-                       .bind(zs[zi])
-                       .bind(shell[layer])
-                       .write(&mut sink);
-            }
-        }
-    }
-
-    let mut i = 0;
-    let scenes: Vec<Scene> = xs.into_iter()
-                               .chain(ys.into_iter())
-                               .chain(zs.into_iter())
-                               .chain(shell.into_iter()).collect();
+    let texture = texture.get().unwrap();
 
     let camera = Entity::new();
+    let logo_material = Material::new()
+                                 .bind(Kd(texture))
+                                 .write(&mut sink);
+    
+    
+    // This creates a giant skybox
+    let mut transform: Decomposed<f32, Vector3<f32>, Quaternion<f32>> = Decomposed::identity();
+    transform.scale = 1.;
+    transform.disp.z = -1f32;
+    Entity::new()
+           .bind(DrawBinding(shapes.plane, logo_material))
+           .bind(Delta(transform))
+           .bind(scene)
+           .write(&mut sink);
 
-    let trans = sink.transform.clone();
-    engine.start_input_processor(move |sched, msg| {
-        no_clip::no_clip(sched, camera, Decomposed::identity(), msg, trans);
-    });
-
-    let text = Entity::new();
     engine.start_input_processor(move |_, mut msg| {
-        let mut start = time::precise_time_s();
-        let mut end = time::precise_time_s();
-
         loop {
-            let start_of_loop = time::precise_time_s();
             for _ in msg.copy_iter(true) {}
             msg.next_frame();
 
-            i += 1;
-
-            text.bind(DebugText{
-                text: format!("Input Loop {:3.2}ms", (end - start) * 1000.),
-                start: [20, 20],
-                color: [1., 1., 1., 1.]
-            }).write(&mut sink);
-
             camera.bind(Primary)
+                  .bind(Delta(Decomposed::identity()))
                   .bind(Camera(
                     PerspectiveFov {
                         fovy: cgmath::deg(90.),
@@ -156,13 +114,9 @@ fn main() {
                         near: 0.1,
                         far: 1000.
                     },
-                    scenes[(i / 4) % scenes.len()]))
-                  .write(&mut sink);
+                    scene
+                  )).write(&mut sink);
             sink.next_frame();
-
-            start = start_of_loop;
-            end = time::precise_time_s();
-
         }
     });
     engine.run();
