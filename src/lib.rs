@@ -21,7 +21,7 @@ extern crate genmesh;
 extern crate pulse;
 
 use graphics::{Vertex, VertexPosTexNorm, PosTexNorm, VertexBuffer,
-    Geometry, Material, Primative, KdFlat, GraphicsSource
+    Geometry, Material, Primative, Kd, GraphicsSource
 };
 
 use genmesh::generators::{Plane, Cube, SphereUV};
@@ -127,22 +127,22 @@ impl StdMaterials {
     pub fn load(sink: &mut GraphicsSource) -> StdMaterials {
         StdMaterials {
             flat: StandardColors {
-                white:   Material::new().bind(KdFlat([1.00, 1.00, 1.00])).write(sink),
-                silver:  Material::new().bind(KdFlat([0.75, 0.75, 0.75])).write(sink),
-                gray:    Material::new().bind(KdFlat([0.50, 0.50, 0.50])).write(sink),
-                black:   Material::new().bind(KdFlat([0.00, 0.00, 0.00])).write(sink),
-                red:     Material::new().bind(KdFlat([1.00, 0.00, 0.00])).write(sink),
-                maroon:  Material::new().bind(KdFlat([0.50, 0.00, 0.00])).write(sink),
-                yellow:  Material::new().bind(KdFlat([1.00, 1.00, 0.00])).write(sink),
-                olive:   Material::new().bind(KdFlat([0.50, 0.50, 0.00])).write(sink),
-                line:    Material::new().bind(KdFlat([0.00, 1.00, 0.00])).write(sink),
-                green:   Material::new().bind(KdFlat([0.00, 0.50, 0.00])).write(sink),
-                aqua:    Material::new().bind(KdFlat([0.00, 1.00, 1.00])).write(sink),
-                teal:    Material::new().bind(KdFlat([0.00, 0.50, 0.50])).write(sink),
-                blue:    Material::new().bind(KdFlat([0.00, 0.00, 1.00])).write(sink),
-                navy:    Material::new().bind(KdFlat([0.00, 0.00, 0.50])).write(sink),
-                fuchsia: Material::new().bind(KdFlat([1.00, 0.00, 1.00])).write(sink),
-                purple:  Material::new().bind(KdFlat([0.50, 0.00, 0.50])).write(sink)
+                white:   Material::new().bind(Kd([1.00, 1.00, 1.00, 1.])).write(sink),
+                silver:  Material::new().bind(Kd([0.75, 0.75, 0.75, 1.])).write(sink),
+                gray:    Material::new().bind(Kd([0.50, 0.50, 0.50, 1.])).write(sink),
+                black:   Material::new().bind(Kd([0.00, 0.00, 0.00, 1.])).write(sink),
+                red:     Material::new().bind(Kd([1.00, 0.00, 0.00, 1.])).write(sink),
+                maroon:  Material::new().bind(Kd([0.50, 0.00, 0.00, 1.])).write(sink),
+                yellow:  Material::new().bind(Kd([1.00, 1.00, 0.00, 1.])).write(sink),
+                olive:   Material::new().bind(Kd([0.50, 0.50, 0.00, 1.])).write(sink),
+                line:    Material::new().bind(Kd([0.00, 1.00, 0.00, 1.])).write(sink),
+                green:   Material::new().bind(Kd([0.00, 0.50, 0.00, 1.])).write(sink),
+                aqua:    Material::new().bind(Kd([0.00, 1.00, 1.00, 1.])).write(sink),
+                teal:    Material::new().bind(Kd([0.00, 0.50, 0.50, 1.])).write(sink),
+                blue:    Material::new().bind(Kd([0.00, 0.00, 1.00, 1.])).write(sink),
+                navy:    Material::new().bind(Kd([0.00, 0.00, 0.50, 1.])).write(sink),
+                fuchsia: Material::new().bind(Kd([1.00, 0.00, 1.00, 1.])).write(sink),
+                purple:  Material::new().bind(Kd([0.50, 0.00, 0.50, 1.])).write(sink)
             }
         }
 
