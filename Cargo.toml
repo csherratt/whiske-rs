@@ -1,0 +1,26 @@
+[package]
+name = "obj_loader"
+version = "0.1.0"
+authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
+
+[dependencies]
+genmesh="*"
+obj="*"
+pulse="*"
+image="*"
+
+[dependencies.slide-rs-engine]
+git = "https://github.com/csherratt/engine.git"
+
+[dependencies.entity]
+git = "https://github.com/csherratt/entity.git"
+
+[dependencies.graphics]
+git = "https://github.com/csherratt/graphics.git"
+
+[dependencies.fibe]
+git = "https://github.com/slide-rs/fibe-rs.git"
+
+[dependencies.future_pulse]
+git = "https://github.com/csherratt/future_pulse.git"
+
