@@ -47,6 +47,7 @@ fn load_textures(sched: &mut Schedule,
                 if insert {
                     let mut path = path.clone();
                     path.pop();
+                    path.push(t);
 
                     map.insert(
                         t.clone(),
@@ -80,7 +81,6 @@ fn collect_materials(sched: &mut Schedule,
                      r: Set<Vec<Material>>,
                      mut v: Vec<Material>,
                      mut m: SelectMap<Future<Result<Mtl, Error>>>) {
-    
     if let Some((_, x)) = m.try_next() {
         for m in x.get().unwrap().materials {
             v.push(m);
@@ -144,85 +144,88 @@ fn resolve_materials(materials: Vec<Material>,
 
 fn load_geometry(sched: &mut Schedule,
                  object: obj::Obj<String>,
-                 src: GraphicsSource) -> HashMap<String, (Geometry, Option<String>)> {
+                 src: GraphicsSource) -> HashMap<(String, String), (Geometry, Option<String>)> {
 
     let mut res = HashMap::new();
     let object = Arc::new(object);
     let o2 = object.clone();
     for o in o2.object_iter() {
-        let object = object.clone();
-        let mut src = src.clone();
-        let g = o.group_iter().next().unwrap(); // expect one group only
 
-        let idx = g.indices.clone();
-        let geo = Geometry::new();
-        res.insert(o.name.clone(), (geo, g.material.clone()));
+        for g in o.group_iter() {
+            let mut src = src.clone();
+            let object = object.clone();
+            let name = (o.name.clone(), g.name.clone());
+            let idx = g.indices.clone();
+            let geo = Geometry::new();
+            res.insert(name, (geo, g.material.clone()));
 
-        task(move |_| {
-            let mut vertices = Vec::new();
-            let indices: Vec<u32> = {
-                let object = object.clone();
-                let mut indexer = LruIndexer::new(64, |_, v| {
-                    let (p, t, n): (usize, Option<usize>, Option<usize>) = v;
-                    let vert = match (t, n) {
-                        (Some(t), Some(n)) => {
-                            VertexPosTexNorm {
-                                position: object.position()[p],
-                                texture: object.texture()[t],
-                                normal: object.normal()[n]
+            task(move |_| {
+                let mut vertices = Vec::new();
+                let indices: Vec<u32> = {
+                    let object = object.clone();
+                    let mut indexer = LruIndexer::new(64, |_, v| {
+                        let (p, t, n): (usize, Option<usize>, Option<usize>) = v;
+                        let vert = match (t, n) {
+                            (Some(t), Some(n)) => {
+                                VertexPosTexNorm {
+                                    position: object.position()[p],
+                                    texture: object.texture()[t],
+                                    normal: object.normal()[n]
+                                }
                             }
-                        }
-                        (Some(t), _) => {
-                            VertexPosTexNorm {
-                                position: object.position()[p],
-                                texture: object.texture()[t],
-                                normal: [1., 0., 0.]
+                            (Some(t), _) => {
+                                VertexPosTexNorm {
+                                    position: object.position()[p],
+                                    texture: object.texture()[t],
+                                    normal: [1., 0., 0.]
+                                }
                             }
-                        }
-                        (_, Some(n)) => {
-                            VertexPosTexNorm {
-                                position: object.position()[p],
-                                texture: [0., 0.],
-                                normal: object.normal()[n]
+                            (_, Some(n)) => {
+                                VertexPosTexNorm {
+                                    position: object.position()[p],
+                                    texture: [0., 0.],
+                                    normal: object.normal()[n]
+                                }
                             }
-                        }
-                        (_, _) => {
-                            VertexPosTexNorm {
-                                position: object.position()[p],
-                                texture: [0., 0.],
-                                normal: [1., 0., 0.]
+                            (_, _) => {
+                                VertexPosTexNorm {
+                                    position: object.position()[p],
+                                    texture: [0., 0.],
+                                    normal: [1., 0., 0.]
+                                }
                             }
-                        }
-                    };
-                    vertices.push(vert)
-                });
+                        };
+                        vertices.push(vert)
+                    });
 
-                idx.iter()
-                   .map(|x| *x)
-                   .triangulate()
-                   .vertex(|v| indexer.index(v) as u32)
-                   .vertices()
-                   .collect()
-            };
+                    idx.iter()
+                       .map(|x| *x)
+                       .triangulate()
+                       .vertex(|v| indexer.index(v) as u32)
+                       .vertices()
+                       .collect()
+                };
 
-            let vb = VertexBuffer::new()
-                .bind(PosTexNorm(vertices))
-                .bind_index(indices)
-                .write(&mut src);
+                let vb = VertexBuffer::new()
+                    .bind(PosTexNorm(vertices))
+                    .bind_index(indices)
+                    .write(&mut src);
 
-            geo.bind(vb.geometry(Primative::Triangle))
-               .write(&mut src);
-        }).start(sched);
+                geo.bind(vb.geometry(Primative::Triangle))
+                   .write(&mut src);
+            }).start(sched);
+        }
     }
     res
 }
 
 pub fn load(sched: &mut Schedule, path: PathBuf, src: GraphicsSource)
-    -> Future<HashMap<String, (Geometry, Option<graphics::Material>)>> {
-    let (fres, fset) = Future::new();
-
-    task(move |sched| {
-        File::open(path.clone()).map(move |f| {
+    -> Result<Future<HashMap<(String, String), (Geometry, Option<graphics::Material>)>>,
+              std::io::Error> {
+    
+    File::open(path.clone()).map(|f| {
+        let (fres, fset) = Future::new();
+        task(move |sched| {
             let mut f = BufReader::new(f);
             let obj = obj::Obj::load(&mut f);
 
@@ -269,12 +272,8 @@ pub fn load(sched: &mut Schedule, path: PathBuf, src: GraphicsSource)
                     }
                     fset.set(res);
                 }).after(sig).start(sched);
-
-            }).after(sig).start(sched);
-            
-
-        });
-    }).start(sched);
-
-    fres
+            }).after(sig).start(sched);            
+        }).start(sched);
+        fres
+    })
 }
