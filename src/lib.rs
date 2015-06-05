@@ -89,7 +89,8 @@ pub struct Renderer<R: Resources, D, F: Factory<R>> {
     pipeline: Option<forward::Pipeline<R>>,
 
     // debug
-    debug: gfx_debug_draw::DebugRenderer<R, F>
+    debug: gfx_debug_draw::DebugRenderer<R, F>,
+    sampler: gfx::handle::Sampler<R>
 
 }
 
@@ -145,6 +146,8 @@ impl<R: Resources, D, F: Factory<R>> AbstractScene<R> for Renderer<R, D, F> {
     type Camera = MaterializedCamera;
     type Status = Report;
 
+
+    #[inline(never)]
     fn draw<H, S>(&self,
                   phase: &mut H,
                   camera: &MaterializedCamera,
@@ -237,6 +240,8 @@ impl<R, D, F> Renderer<R, D, F>
                device: D,
                mut factory: F) -> (RendererInput, Renderer<R, D, F>) {
 
+        use gfx::tex::WrapMode::Tile;
+
         let pipeline = forward::Pipeline::new(&mut factory);
         let (tx, rx) = channel::channel();
 
@@ -244,6 +249,16 @@ impl<R, D, F> Renderer<R, D, F>
         let debug = gfx_debug_draw::DebugRenderer::new(
             factory.clone(), text, 16
         ).unwrap();
+
+        let sampler = factory.create_sampler(
+            gfx::tex::SamplerInfo{
+                filtering: gfx::tex::FilterMethod::Mipmap,
+                wrap_mode: (Tile, Tile, Tile),
+                lod_bias: 0.,
+                lod_range: (0., 10.),
+                comparison: None
+            }
+        );
 
         (RendererInput(tx),
          Renderer {
@@ -266,7 +281,8 @@ impl<R, D, F> Renderer<R, D, F>
             primary: None,
             cameras: HashMap::new(),
             debug: debug,
-            textures: HashMap::new()
+            textures: HashMap::new(),
+            sampler: sampler
         })
     }
 
@@ -331,7 +347,7 @@ impl<R, D, F> Renderer<R, D, F>
                     return;
                 };
 
-                dst.texture = Some((text, None));
+                dst.texture = Some((text, Some(self.sampler.clone())));
             }
             _ => ()
         }
@@ -385,7 +401,7 @@ impl<R, D, F> Renderer<R, D, F>
             &text,
             &img_info,
             &texture.raw_pixels()[..],
-            Some(gfx::tex::Kind::D2,)
+            Some(gfx::tex::Kind::D2)
         ).unwrap();
 
         self.textures.insert(entity, text);

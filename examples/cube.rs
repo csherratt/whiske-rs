@@ -85,7 +85,7 @@ fn main() {
     let shapes = std_graphics::StdGeometry::load(engine.sched(), sink.gsrc.clone());
     let shapes = shapes.get();
 
-    let count = 10;
+    let count = 20;
 
     let all = Scene::new();
     let xs: Vec<Scene> = (-count..count).map(|_| Scene::new()).collect();
@@ -118,10 +118,10 @@ fn main() {
     }
 
     let mut i = 0;
-    let scenes: Vec<Scene> = xs.into_iter()
+    /*let scenes: Vec<Scene> = xs.into_iter()
                                .chain(ys.into_iter())
                                .chain(zs.into_iter())
-                               .chain(shell.into_iter()).collect();
+                               .chain(shell.into_iter()).collect();*/
 
     let camera = Entity::new();
 
@@ -156,7 +156,7 @@ fn main() {
                         near: 0.1,
                         far: 1000.
                     },
-                    scenes[(i / 4) % scenes.len()]))
+                    shell[(i / 4) % shell.len()]))
                   .write(&mut sink);
             sink.next_frame();
 
