@@ -360,7 +360,7 @@ impl<R, D, F> Renderer<R, D, F>
                    texture: image::DynamicImage) {
 
         // Flip the image
-        let texture = texture.flipv();
+        //let texture = texture.flipv();
 
         let format = match texture.color() {
             image::RGB(8) => {
