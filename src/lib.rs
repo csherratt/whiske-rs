@@ -7,7 +7,7 @@ extern crate pulse;
 use std::collections::{HashSet, HashMap};
 use snowstorm::channel::{Sender, Receiver};
 use entity::{Entity, Operation, DeleteEntity};
-use fibe::{Schedule, ResumableTask, WaitState, IntoTask};
+use fibe::{task, Schedule};
 use pulse::{Signal, Signals, SelectMap};
 use parent::{Parent, ParentOutput};
 
@@ -99,7 +99,6 @@ struct SceneSystem {
     // input
     parents: ParentOutput,
     ingest: Receiver<Message>,
-    select: SelectMap<fn(&mut SceneSystem) -> Option<Signal>>,
 
     // output
     output: Sender<Message>,
@@ -205,27 +204,26 @@ impl SceneSystem {
             Some(self.ingest.signal())
         }
     }
-}
 
-impl ResumableTask for SceneSystem {
-    fn resume(&mut self, _: &mut Schedule) -> WaitState {
-        while let Some((_, cb)) = self.select.try_next() {
-            if let Some(sig) = cb(self) {
-                self.select.add(sig, cb);
+    fn run(&mut self) {
+        let mut select: SelectMap<fn(&mut SceneSystem) -> Option<Signal>> = SelectMap::new();
+
+        loop {
+            select.add(self.parents.signal(), SceneSystem::sync_parent);
+            select.add(self.ingest.signal(), SceneSystem::sync_ingest);
+            while let Some((_, cb)) = select.next() {
+                if let Some(sig) = cb(self) {
+                    select.add(sig, cb);
+                }
             }
-        }
 
-        if self.select.len() == 0 {
             if !self.parents.next_frame() || !self.ingest.next_frame() {
-                return WaitState::Completed;
+                return;
             } else {
                 self.output.next_frame();
-                self.select.add(self.parents.signal(), SceneSystem::sync_parent);
-                self.select.add(self.ingest.signal(), SceneSystem::sync_ingest);
+
             }
         }
-        
-        WaitState::Pending(self.select.signal())
     }
 }
 
@@ -240,21 +238,18 @@ impl ResumableTask for SceneSystem {
 /// into and out of the system.
 pub fn scene(sched: &mut Schedule, parents: ParentOutput) -> (SceneInput, SceneOutput) {
     let (src_tx, src_rx) = snowstorm::channel::channel();
-    let mut select: SelectMap<fn(&mut SceneSystem) -> Option<Signal>> = SelectMap::new();
-    select.add(parents.signal(), SceneSystem::sync_parent);
-    select.add(src_rx.signal(), SceneSystem::sync_ingest);
-    let signal = select.signal();
-
     let (sink_tx, sink_rx) = snowstorm::channel::channel();
-    Box::new(SceneSystem {
+
+    let mut system = SceneSystem {
         parents: parents,
         ingest: src_rx,
-        select: select,
         output: sink_tx,
         belongs_to: HashMap::new(),
         contains: HashMap::new(),
         parent_to_children: HashMap::new(),
-    }).after(signal).start(sched);
+    };
+
+    task(move |_| { system.run() }).start(sched);
 
     (SceneInput(src_tx), SceneOutput(sink_rx))
 }
