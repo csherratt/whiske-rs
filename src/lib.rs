@@ -71,27 +71,19 @@ impl ParentSystem {
             }
         }
     }
-}
 
-impl ResumableTask for ParentSystem {
-    fn resume(&mut self, _: &mut Schedule) -> WaitState {
-        while let Some(&msg) = self.input.try_recv() {
-            self.write(msg.clone());
-        }
-        if self.input.closed() {
-            // The channel is closed and there is no next frame
-            // which means there are no more Senders, and we should
-            // exit
-            if !self.input.next_frame() {
-                return WaitState::Completed;
-            } else {
-                // signal the next stage that we are done
+    fn run(&mut self) {
+        loop {
+            while let Ok(&msg) = self.input.recv() {
+                self.write(msg.clone());
+            }
+
+            if self.input.next_frame() {
                 self.output.next_frame();
+            } else {
+                return;
             }
         }
-        
-        // there is still more data to process
-        WaitState::Pending(self.input.signal())
     }
 }
 
@@ -108,14 +100,13 @@ pub fn parent(sched: &mut Schedule) -> (ParentInput, ParentOutput) {
     let (tx_ingest, rx_ingest) = channel();
     let (tx_engest, rx_engest) = channel();
 
-    let signal = rx_ingest.signal();
-
-    ParentSystem {
+    let mut system = ParentSystem {
         input: rx_ingest,
         output: tx_engest,
         child_to_parent: HashMap::new(),
         parent_to_children: HashMap::new()
-    }.after(signal).start(sched);
+    };
+    task(move |_| system.run()).start(sched);
     
     (ParentInput(tx_ingest), ParentOutput(rx_engest))
 }
