@@ -53,7 +53,7 @@ impl<D, F, R> Engine<D, F, R>
         where C: FnOnce(&mut fibe::Schedule, Receiver<Event>)+Send+'static {
         
         let rx = self.input.1.clone();
-        fiber(|sched| {
+        task(|sched| {
             actor(sched, rx);
         }).start(&mut self.pool);
     }
