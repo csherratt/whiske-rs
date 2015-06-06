@@ -31,7 +31,6 @@ use cgmath::{Vector3, EuclideanVector};
 
 use fibe::{Schedule, task};
 use future_pulse::Future;
-use pulse::{Barrier, Signals};
 
 fn build_vectors<T: Iterator<Item=Quad<VertexPosTexNorm>>>(input: T)
     -> (graphics::Vertex, Vec<u32>) {
@@ -168,50 +167,38 @@ pub struct StdGeometry {
     pub sphere: Spheres,
 }
 
-fn build_sphere(mut sink: GraphicsSource, size: usize, geo: Geometry) {
+fn build_sphere(mut sink: GraphicsSource, size: usize) -> Geometry {
     let (sphere_v, sphere_i) = build_vectors_poly(SphereUV::new(size, size));
     let vb = VertexBuffer::new()
                           .bind(sphere_v)
                           .bind_index(sphere_i)
                           .write(&mut sink);
-    geo.bind(vb.geometry(Primative::Triangle)).write(&mut sink);
+    Geometry::new()
+             .bind(vb.geometry(Primative::Triangle))
+             .write(&mut sink)
 }
 
 impl StdGeometry {
     pub fn load(sched: &mut Schedule, mut sink: GraphicsSource) -> Future<StdGeometry> {
-        let s = Spheres {
-            uv_2: Geometry::new(),
-            uv_4: Geometry::new(),
-            uv_8: Geometry::new(),
-            uv_16: Geometry::new(),
-            uv_32: Geometry::new(),
-            uv_64: Geometry::new(),
-            uv_128: Geometry::new(),
-            uv_256: Geometry::new()
-        };
+        let g = sink.clone();
+        let uv_2 = task(move |_| build_sphere(g, 2)).start(sched);
+        let g = sink.clone();
+        let uv_4 = task(move |_| build_sphere(g, 4)).start(sched);
+        let g = sink.clone();
+        let uv_8 = task(move |_| build_sphere(g, 8)).start(sched);
+        let g = sink.clone();
+        let uv_16 = task(move |_| build_sphere(g, 16)).start(sched);
+        let g = sink.clone();
+        let uv_32 = task(move |_| build_sphere(g, 32)).start(sched);
+        let g = sink.clone();
+        let uv_64 = task(move |_| build_sphere(g, 64)).start(sched);
+        let g = sink.clone();
+        let uv_128 = task(move |_| build_sphere(g, 128)).start(sched);
+        let g = sink.clone();
+        let uv_256 = task(move |_| build_sphere(g, 256)).start(sched);
 
-        let mut tasks = Vec::new();
-
-        let g = sink.clone();
-        tasks.push(task(move |_| build_sphere(g, 2, s.uv_2)).start(sched));
-        let g = sink.clone();
-        tasks.push(task(move |_| build_sphere(g, 4, s.uv_4)).start(sched));
-        let g = sink.clone();
-        tasks.push(task(move |_| build_sphere(g, 8, s.uv_8)).start(sched));
-        let g = sink.clone();
-        tasks.push(task(move |_| build_sphere(g, 16, s.uv_16)).start(sched));
-        let g = sink.clone();
-        tasks.push(task(move |_| build_sphere(g, 32, s.uv_32)).start(sched));
-        let g = sink.clone();
-        tasks.push(task(move |_| build_sphere(g, 64, s.uv_64)).start(sched));
-        let g = sink.clone();
-        tasks.push(task(move |_| build_sphere(g, 128, s.uv_128)).start(sched));
-        let g = sink.clone();
-        tasks.push(task(move |_| build_sphere(g, 256, s.uv_256)).start(sched));
-
-        let cube = Geometry::new();
         let mut g = sink.clone();
-        tasks.push(task(move |_| {
+        let cube = task(move |_| {
             let (cube_v, cube_i) = build_vectors(
                 Cube::new().vertex(|(x, y, z)| {
                     VertexPosTexNorm {
@@ -225,11 +212,10 @@ impl StdGeometry {
                                   .bind(cube_v)
                                   .bind_index(cube_i)
                                   .write(&mut g);
-            cube.bind(vb.geometry(Primative::Triangle)).write(&mut g);
-        }).start(sched));
+            Geometry::new().bind(vb.geometry(Primative::Triangle)).write(&mut g)
+        }).start(sched);
 
-        let plane = Geometry::new();
-        tasks.push(task(move |_| {
+        let plane = task(move |_| {
             let (plane_v, plane_i) = build_vectors(
                 Plane::new().vertex(|(x, y)| {
                     VertexPosTexNorm {
@@ -243,17 +229,24 @@ impl StdGeometry {
                                   .bind(plane_v)
                                   .bind_index(plane_i)
                                   .write(&mut sink);
-            plane.bind(vb.geometry(Primative::Triangle)).write(&mut sink);
-        }).start(sched));
+            Geometry::new().bind(vb.geometry(Primative::Triangle)).write(&mut sink)
+        }).start(sched);
 
-        let (future, set) = Future::new();
         task(move |_| {
-            set.set(StdGeometry{
-                sphere: s,
-                cube: cube,
-                plane: plane
-            });
-        }).after(Barrier::new(&tasks).signal()).start(sched);
-        future
+            StdGeometry{
+                sphere: Spheres {
+                    uv_2: uv_2.get(),
+                    uv_4: uv_4.get(),
+                    uv_8: uv_8.get(),
+                    uv_16: uv_16.get(),
+                    uv_32: uv_32.get(),
+                    uv_64: uv_64.get(),
+                    uv_128: uv_128.get(),
+                    uv_256: uv_256.get(),
+                },
+                cube: cube.get(),
+                plane: plane.get()
+            }
+        }).start(sched)
     }
 }

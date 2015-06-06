@@ -18,4 +18,4 @@ git = "https://github.com/csherratt/graphics.git"
 git = "https://github.com/slide-rs/fibe-rs.git"
 
 [dependencies.future_pulse]
-git = "https://github.com/csherratt/future_pulse.git"
+git = "https://github.com/slide-rs/future_pulse.git"
