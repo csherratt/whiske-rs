@@ -10,9 +10,7 @@ use glutin::Event;
 
 pub use snowstorm::channel::*;
 
-pub type Window<D, R> = gfx::extra::stream::OwnedStream<D,
-    gfx_window_glutin::Output<R>
->;
+pub type Window<D, R> = gfx::extra::stream::OwnedStream<D, gfx_window_glutin::Output<R>>;
 
 pub struct Engine<D: gfx::Device, F, R: gfx::Resources> {
     input: (Sender<Event>, Receiver<Event>),
@@ -55,7 +53,7 @@ impl<D, F, R> Engine<D, F, R>
         where C: FnOnce(&mut fibe::Schedule, Receiver<Event>)+Send+'static {
         
         let rx = self.input.1.clone();
-        task(|sched| {
+        fiber(|sched| {
             actor(sched, rx);
         }).start(&mut self.pool);
     }
