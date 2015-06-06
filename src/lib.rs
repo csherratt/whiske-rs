@@ -18,9 +18,6 @@ struct TransformSystem {
     delta: Receiver<Operation<Entity, Delta>>,
     parent: ParentOutput,
 
-    // input select
-    select: SelectMap<fn (&mut TransformSystem) -> Option<Signal>>,
-
     // output
     output: Sender<Operation<Entity, Solved>>,
 
@@ -114,13 +111,35 @@ impl TransformSystem {
         parent.concat(&mat)
     }
 
-
     fn update(&mut self) {
         for dirty in self.dirty.iter() {
             let solved = self.solve(*dirty);
             dirty.bind(Solved(solved)).write(&mut self.output);
         }
         self.dirty.clear();
+    }
+
+    fn run(&mut self) {
+        let mut select: SelectMap<fn(&mut TransformSystem) -> Option<Signal>> = SelectMap::new();
+
+        loop {
+            select.add(self.delta.signal(), TransformSystem::handle_delta);
+            select.add(self.parent.signal(), TransformSystem::handle_parent);
+
+            while let Some((_, cb)) = select.next() {
+                if let Some(sig) = cb(self) {
+                    select.add(sig, cb);
+                }
+            }
+
+            self.update();
+
+            if self.delta.next_frame() && self.parent.next_frame() {
+                self.output.next_frame();
+            } else {
+                return;
+            }
+        }
     }
 }
 
@@ -142,47 +161,18 @@ pub fn transform(sched: &mut Schedule,
     let (tx, output) = channel();
     let (delta_input, delta) = channel();
 
-    let mut select: SelectMap<fn (&mut TransformSystem) -> Option<Signal>> = SelectMap::new();
-    select.add(delta.signal(), TransformSystem::handle_delta);
-    select.add(parent.signal(), TransformSystem::handle_parent);
-    let signal = select.signal();
-
-    TransformSystem {
+    let mut system = TransformSystem {
         delta: delta,
         parent: parent,
-        select: select,
         output: tx,
         child_to_parent: HashMap::new(),
         parent_to_child: HashMap::new(),
         dirty: HashSet::new(),
         deltas: HashMap::new()
-    }.after(signal).start(sched);
+    };
+    task(move |_| system.run()).start(sched);
 
     (TransformInput(delta_input), TransformOutput(output))
-}
-
-impl ResumableTask for TransformSystem {
-    fn resume(&mut self, _: &mut Schedule) -> WaitState {
-        if let Some((_, cb)) = self.select.try_next() {
-            if let Some(sig) = cb(self) {
-                self.select.add(sig, cb);
-            }
-        }
-
-        if self.select.len() == 0 {
-            self.update();
-            if !(self.delta.next_frame() && self.parent.next_frame()) {
-                return WaitState::Completed;
-            }
-            self.output.next_frame();
-
-            self.select.add(self.delta.signal(), TransformSystem::handle_delta);
-            self.select.add(self.parent.signal(), TransformSystem::handle_parent);
-        }
-
-        // there is still more data to process
-        WaitState::Pending(self.select.signal())
-    }
 }
 
 /// A channel to send infromation to the Transform System
