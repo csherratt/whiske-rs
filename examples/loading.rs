@@ -16,6 +16,8 @@ extern crate obj_loader;
 
 use std::path::PathBuf;
 use std::env::args;
+use std::thread;
+
 use graphics::{
     Vertex, VertexBuffer, Geometry, Texture,
     Material, MaterialComponent, GeometryData
@@ -108,7 +110,7 @@ fn main() {
                 fovy: cgmath::deg(90.),
                 aspect: 4./3.,
                 near: 0.1,
-                far: 1000.
+                far: 10000.
             },
             scene
           )).write(&mut sink);
@@ -120,6 +122,7 @@ fn main() {
 
     engine.start_input_processor(move |_, mut msg| {
         loop {
+            println!("input {:?}", thread::current());
             for _ in msg.copy_iter(true) {}
             msg.next_frame();
             sink.next_frame();

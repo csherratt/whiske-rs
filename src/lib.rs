@@ -12,12 +12,12 @@ use std::path::PathBuf;
 use std::io::{BufReader, Error};
 use std::fs::File;
 use std::sync::Arc;
+use std::thread;
 
 use image::ImageError;
-
 use pulse::{SelectMap, Signals};
 use fibe::{Schedule, task};
-use future_pulse::{Future, Set};
+use future_pulse::Future;
 use graphics::{GraphicsSource, Texture, VertexBuffer,
     Ka, Kd, Ks, VertexPosTexNorm, Geometry, Primative,
     PosTexNorm
@@ -62,56 +62,12 @@ fn load_textures(sched: &mut Schedule,
 
 /// Load the material returning it as a future
 fn load_material(sched: &mut Schedule, path: PathBuf) -> Future<Result<obj::Mtl, Error>> {
-
-    let (future, set) = Future::new();
     task(move |_| {
-        set.set(
-            File::open(&path)
+        File::open(&path)
              .map(|file| {
                 obj::Mtl::load(&mut BufReader::new(file))
-              })
-        )
-
-    }).start(sched);
-    future
-}
-
-/// Collect the results of a materials into a vector
-fn collect_materials(sched: &mut Schedule,
-                     r: Set<Vec<Material>>,
-                     mut v: Vec<Material>,
-                     mut m: SelectMap<Future<Result<Mtl, Error>>>) {
-    if let Some((_, x)) = m.try_next() {
-        for m in x.get().unwrap().materials {
-            v.push(m);
-        }
-    }
-
-    if m.len() == 0 {
-        r.set(v);
-        return
-    } else {
-        let sig = m.signal();
-        task(move |sched| collect_materials(sched, r, v, m)).after(sig).start(sched);
-    }
-}
-
-fn collect_textures(sched: &mut Schedule,
-                    r: Set<HashMap<String, Texture>>,
-                    mut v: HashMap<String, Texture>,
-                    mut m: SelectMap<(String, Future<Result<Texture, ImageError>>)>) {
-
-    if let Some((_, (k, t))) = m.try_next() {
-        v.insert(k, t.get().unwrap());
-    }
-
-    if m.len() == 0 {
-        r.set(v);
-        return
-    } else {
-        let sig = m.signal();
-        task(move |sched| collect_textures(sched, r, v, m)).after(sig).start(sched);
-    }
+             })
+    }).start(sched)
 }
 
 fn resolve_materials(materials: Vec<Material>,
@@ -224,56 +180,47 @@ pub fn load(sched: &mut Schedule, path: PathBuf, src: GraphicsSource)
               std::io::Error> {
     
     File::open(path.clone()).map(|f| {
-        let (fres, fset) = Future::new();
         task(move |sched| {
             let mut f = BufReader::new(f);
             let obj = obj::Obj::load(&mut f);
 
-            let mut materials = SelectMap::new();
+            let mut materials_future = SelectMap::new();
             for m in obj.materials().iter() {
                 let mut p = path.clone();
                 p.pop();
                 p.push(&m);
                 let m = load_material(sched, p);
                 let s = m.signal();
-                materials.add(s, m);
+                materials_future.add(s, m);
             }
-
-            let sig = materials.signal();
-            let (future, set) = Future::new();
-            task(move |sched| {
-                collect_materials(sched, set, Vec::new(), materials)
-            }).after(sig).start(sched);
 
             let geo = load_geometry(sched, obj, src.clone());
 
-            let sig = future.signal();
-            task(move |sched| {
-                let mut mapping = SelectMap::new();
-                let materials = future.get();
-                for (k, v) in load_textures(sched, path, &materials[..], &src) {
-                    let sig = v.signal();
-                    mapping.add(sig, (k, v));
+            let mut materials: Vec<Material> = Vec::new();
+            for (_, mat) in materials_future {
+                let mat = mat.get().unwrap();
+                for m in mat.materials { 
+                    materials.push(m);
                 }
+            }
 
-                let (future_text, set_text) = Future::new();
-                let sig = mapping.signal();
-                task(move |sched| {
-                    collect_textures(sched, set_text, HashMap::new(), mapping);
-                }).after(sig).start(sched);
+            let mut textures_future = SelectMap::new();
+            for (k, v) in load_textures(sched, path, &materials[..], &src) {
+                let sig = v.signal();
+                textures_future.add(sig, (k, v));
+            }
 
-                let sig = future_text.signal();
-                task(move |_| {
-                    let texture = future_text.get();
-                    let mat = resolve_materials(materials, texture, src);
-                    let mut res = HashMap::new();
-                    for (k, (g, m)) in geo {
-                        res.insert(k, (g, m.and_then(|v| mat.get(&v).map(|x| *x))));
-                    }
-                    fset.set(res);
-                }).after(sig).start(sched);
-            }).after(sig).start(sched);            
-        }).start(sched);
-        fres
+            let mut textures = HashMap::new();
+            for (_, (k, v)) in textures_future {
+                textures.insert(k, v.get().unwrap());
+            }
+
+            let mat = resolve_materials(materials, textures, src);
+            let mut res = HashMap::new();
+            for (k, (g, m)) in geo {
+                res.insert(k, (g, m.and_then(|v| mat.get(&v).map(|x| *x))));
+            }
+            res
+        }).start(sched)
     })
 }
