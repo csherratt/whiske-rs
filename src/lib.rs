@@ -25,7 +25,7 @@ use snowstorm::channel;
 use transform::{Solved, TransformOutput};
 use graphics::{
     GraphicsSink, VertexData, Texture,
-    Pos, PosTex, PosNorm, PosTexNorm,
+    Pos, PosTex, PosNorm, PosTexNorm, Vertex,
     MaterialComponent, GeometryData, Geometry
 };
 use scene::{Scene, SceneOutput};
@@ -72,6 +72,7 @@ pub struct Renderer<R: Resources, D, F: Factory<R>> {
     position: Position,
 
     vertex: HashMap<Entity, (Option<Mesh<R>>, Option<handle::Buffer<R, u32>>)>,
+    vertex_vals: HashMap<Entity, (Vertex, Vec<u32>)>,
     materials: HashMap<Entity, Material<R>>,
     geometry_data: HashMap<Entity, GeometryData>,
     geometry_slice: HashMap<Entity, GeometrySlice<R>>,
@@ -269,6 +270,7 @@ impl<R, D, F> Renderer<R, D, F>
             render_input: rx,
             position: Position(HashMap::new()),
             vertex: HashMap::new(),
+            vertex_vals: HashMap::new(),
             materials: HashMap::new(),
             geometry_data: HashMap::new(),
             geometry_slice: HashMap::new(),
@@ -289,20 +291,30 @@ impl<R, D, F> Renderer<R, D, F>
     fn add_vertex(&mut self, entity: Entity, vertex: VertexData) {
         let dst = self.vertex.entry(entity).or_insert_with(|| (None, None));
         match vertex {
-            VertexData::Vertex(Pos(data)) => {
+            VertexData::Vertex(Pos(ref data)) => {
                 dst.0 = Some(self.factory.create_mesh(&data[..]));
             }
-            VertexData::Vertex(PosTex(data)) => {
+            VertexData::Vertex(PosTex(ref data)) => {
                 dst.0 = Some(self.factory.create_mesh(&data[..]));
             }
-            VertexData::Vertex(PosNorm(data)) => {
+            VertexData::Vertex(PosNorm(ref data)) => {
                 dst.0 = Some(self.factory.create_mesh(&data[..]));
             }
-            VertexData::Vertex(PosTexNorm(data)) => {
+            VertexData::Vertex(PosTexNorm(ref data)) => {
                 dst.0 = Some(self.factory.create_mesh(&data[..]));
+            }
+            VertexData::Index(ref data) => {
+                dst.1 = Some(self.factory.create_buffer_static(&data, BufferRole::Index));
+            }
+        }
+
+        let dst = self.vertex_vals.entry(entity).or_insert_with(|| (Pos(vec![]), vec![]));
+        match vertex {
+            VertexData::Vertex(data) => {
+                dst.0 = data;
             }
             VertexData::Index(data) => {
-                dst.1 = Some(self.factory.create_buffer_static(&data, BufferRole::Index));
+                dst.1 = data;
             }
         }
     }
