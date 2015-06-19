@@ -1,0 +1,19 @@
+[package]
+name = "slide-rs-engine"
+version = "0.1.0"
+authors = ["Slide-rs Developers"]
+
+[lib]
+name = "engine"
+
+[dependencies.snowstorm]
+git = "https://github.com/csherratt/snowstorm.git"
+
+[dependencies.fibe]
+git = "https://github.com/slide-rs/fibe-rs.git"
+
+[dependencies]
+gfx = "*"
+gfx_device_gl = "*"
+glutin = "*"
+gfx_window_glutin = "*"
