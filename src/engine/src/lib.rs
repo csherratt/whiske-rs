@@ -81,7 +81,7 @@ impl<D, F, R> Engine<D, F, R>
 
         let mut render = self.render.take().expect("no render installed!");
 
-        'main: while run {
+        while run {
             for event in self.window.out.window.poll_events() {
                 match  event {
                     glutin::Event::Closed => {

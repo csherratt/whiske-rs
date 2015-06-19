@@ -1,26 +1,21 @@
 extern crate engine;
-extern crate fibe;
 extern crate snowstorm;
 extern crate glutin;
+extern crate fibe;
 
 use std::thread;
-use fibe::task;
 use snowstorm::channel::*;
 use glutin::Event;
 
 fn process_input(sched: &mut fibe::Schedule, index: u32, mut ch: Receiver<Event>) {
-    // Print out the messages
-    while let Some(msg) = ch.try_recv() {
-        println!("{}: {:?} {:?}", index, thread::current(), msg);
+    loop {
+        for msg in ch.iter() {
+            println!("{}: {:?} {:?}", index, thread::current(), msg);
+        }
+        if !ch.next_frame() {
+            return;
+        }
     }
-
-    // Indicate that this can migrate to the next frame
-    if ch.closed() {
-        ch.next_frame();
-    }
-
-    let signal = ch.signal();
-    task(move |sched| process_input(sched, index, ch)).after(signal).start(sched);
 }
 
 fn main() {
