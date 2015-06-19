@@ -75,13 +75,20 @@ impl<D, F, R> Engine<D, F, R>
 
     /// run the engine
     pub fn run(mut self) {
+        let mut run = true;
         let (mut send, recv) = self.input;
         drop(recv);
 
         let mut render = self.render.take().expect("no render installed!");
 
-        'main: while !self.window.out.window.is_closed() {
+        'main: while run {
             for event in self.window.out.window.poll_events() {
+                match  event {
+                    glutin::Event::Closed => {
+                        run = false;
+                    }
+                    _ => ()
+                }
                 send.send(event);
             }
             send.next_frame();
