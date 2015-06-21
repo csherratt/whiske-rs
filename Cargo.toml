@@ -1,5 +1,5 @@
 [package]
-name = "whiske"
+name = "whiske-rs"
 version = "0.1.0"
 authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
 
@@ -31,4 +31,14 @@ version = "*"
 [dependencies.whiske-rs-graphics]
 path = "src/graphics"
 version = "*"
+
+[dependencies.whiske-rs-renderer]
+path = "src/renderer"
+version = "*"
+
+[dependencies.whiske-rs-scene]
+path = "src/scene"
+version = "*"
+
+
 

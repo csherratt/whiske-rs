@@ -1,7 +1,10 @@
 [package]
-name = "scene"
+name = "whiske-rs-scene"
 version = "0.1.0"
 authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
+
+[lib]
+name="scene"
 
 [dependencies]
 pulse = "*"
@@ -12,8 +15,8 @@ git = "https://github.com/slide-rs/fibe-rs"
 [dependencies.entity]
 git = "https://github.com/csherratt/entity"
 
-[dependencies.parent]
-git = "https://github.com/csherratt/parent"
+[dependencies.whiske-rs-parent]
+path = "../parent"
 
 [dependencies.snowstorm]
 git = "https://github.com/csherratt/snowstorm"
