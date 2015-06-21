@@ -1,7 +1,10 @@
 [package]
-name = "transform"
+name = "whiske-rs-transform"
 version = "0.1.0"
 authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
+
+[lib]
+name="transform"
 
 [dependencies]
 pulse="*"
@@ -10,8 +13,8 @@ cgmath="*"
 [dependencies.entity]
 git = "https://github.com/csherratt/entity.git"
 
-[dependencies.parent]
-git = "https://github.com/csherratt/parent.git"
+[dependencies.whiske-rs-parent]
+path = "../parent"
 
 [dependencies.snowstorm]
 git = "https://github.com/csherratt/snowstorm.git"

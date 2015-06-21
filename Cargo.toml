@@ -5,6 +5,7 @@ authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
 
 [dependencies]
 glutin="*"
+cgmath="*"
 
 [dependencies.snowstorm]
 git = "https://github.com/csherratt/snowstorm.git"
@@ -22,3 +23,8 @@ version = "*"
 [dependencies.whiske-rs-parent]
 path = "src/parent"
 version = "*"
+
+[dependencies.whiske-rs-transform]
+path = "src/transform"
+version = "*"
+
