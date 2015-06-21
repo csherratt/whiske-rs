@@ -48,5 +48,9 @@ version = "*"
 path = "src/obj_loader"
 version = "*"
 
+[dependencies.whiske-rs-no_clip]
+path = "src/no_clip"
+version = "*"
+
 
 
