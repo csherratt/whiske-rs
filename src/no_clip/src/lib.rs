@@ -32,7 +32,7 @@ pub fn no_clip(sched: &mut Schedule,
         loop {
             for msg in input.copy_iter(true) {
                 match msg {
-                    WindowEvent::Pos(x, y) => {
+                    WindowEvent::CursorPos(x, y) => {
                         let (dx, dy) = match last_mouse {
                             Some((ox, oy)) => ((x - ox) as f32, (y - oy) as f32),
                             None => (0., 0.)

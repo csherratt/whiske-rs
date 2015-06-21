@@ -100,6 +100,7 @@ fn main() {
                    .write(&mut sink);
         }
     }
+    println!("Done!");
 
 
     let camera = Entity::new();

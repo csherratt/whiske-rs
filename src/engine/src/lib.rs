@@ -41,11 +41,12 @@ impl Engine<gfx_device_gl::Device,
         let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
         let vr = vr::IVRSystem::init();
 
-        let (window, events) = if let Ok(ref vr) = vr {
+        let (mut window, events) = if let Ok(ref vr) = vr {
             gfx_vr::build_window(&mut glfw, vr)
         } else {
             glfw.create_window(800, 600, "whiske-rs", glfw::WindowMode::Windowed)
         }.unwrap();
+        window.set_all_polling(true);
 
         let (stream, device, factory) = gfx_window_glfw::init(window);
 
