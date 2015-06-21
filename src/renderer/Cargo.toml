@@ -15,8 +15,7 @@ draw_queue="*"
 gfx_phase="0.4"
 gfx_scene="0.4"
 gfx_pipeline="0.3"
-gfx_text="=0.2.0"
-gfx_debug_draw="*"
+gfx_text="*"
 image="*"
 
 [dependencies.entity]

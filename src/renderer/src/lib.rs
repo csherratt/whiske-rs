@@ -12,7 +12,6 @@ extern crate gfx_scene;
 extern crate gfx_device_gl;
 extern crate gfx_pipeline;
 extern crate gfx_text;
-extern crate gfx_debug_draw;
 
 extern crate engine;
 extern crate draw_queue;
@@ -90,8 +89,8 @@ pub struct Renderer<R: Resources, D, F: Factory<R>> {
     pipeline: Option<flat::Pipeline<R>>,
 
     // debug
-    debug: gfx_debug_draw::DebugRenderer<R, F>,
-    sampler: gfx::handle::Sampler<R>
+    sampler: gfx::handle::Sampler<R>,
+    text: gfx_text::Renderer<R, F>
 
 }
 
@@ -247,10 +246,6 @@ impl<R, D, F> Renderer<R, D, F>
         let (tx, rx) = channel::channel();
 
         let text = gfx_text::new(factory.clone()).unwrap();
-        let debug = gfx_debug_draw::DebugRenderer::new(
-            factory.clone(), text, 16
-        ).unwrap();
-
         let sampler = factory.create_sampler(
             gfx::tex::SamplerInfo{
                 filtering: gfx::tex::FilterMethod::Mipmap,
@@ -282,9 +277,9 @@ impl<R, D, F> Renderer<R, D, F>
             scene: Scene::new(),
             primary: None,
             cameras: HashMap::new(),
-            debug: debug,
             textures: HashMap::new(),
-            sampler: sampler
+            sampler: sampler,
+            text: text
         })
     }
 
@@ -599,11 +594,12 @@ impl<R, D, F> Renderer<R, D, F>
             self.pipeline = Some(pipeline);
 
             for (_, text) in self.debug_text.iter() {
-                self.debug.draw_text_on_screen(
+                println!("{:?}", text);
+                self.text.add(
                     &text.text, text.start, text.color
                 );
             }
-            self.debug.render(window, [[0.0; 4]; 4]).unwrap();
+            self.text.draw(window).unwrap();
             window.present(&mut self.device);
         }
     }
