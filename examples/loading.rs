@@ -16,7 +16,6 @@ extern crate obj_loader;
 
 use std::path::PathBuf;
 use std::env::args;
-use std::thread;
 
 use graphics::{
     Vertex, VertexBuffer, Geometry, Texture,

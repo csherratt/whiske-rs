@@ -56,10 +56,10 @@ fn build_vectors<T: Iterator<Item=Quad<VertexPosTexNorm>>>(input: T)
             p.z.normal = [normal.x, normal.y, normal.z];
             p.w.normal = [normal.x, normal.y, normal.z];
 
-            p.x.texture = [0., 0.];
-            p.w.texture = [0., 1.];
-            p.z.texture = [1., 1.];
-            p.y.texture = [1., 0.];
+            p.x.texture = [0., 1.];
+            p.y.texture = [1., 1.];
+            p.z.texture = [1., 0.];
+            p.w.texture = [0., 0.];
 
             p
         })
