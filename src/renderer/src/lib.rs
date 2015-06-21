@@ -40,7 +40,7 @@ use gfx::{
 use gfx::traits::{FactoryExt, Stream};
 use gfx_device_gl::{Device};
 use gfx_scene::{AbstractScene, Report, Error, Context, Frustum};
-use gfx_pipeline::{Material, Transparency, forward, Pipeline};
+use gfx_pipeline::{Material, Transparency, flat, Pipeline};
 use gfx::device::Resources;
 use image::GenericImage;
 
@@ -87,7 +87,7 @@ pub struct Renderer<R: Resources, D, F: Factory<R>> {
     scene: Scene,
     scenes: HashMap<Scene, HashSet<Entity>>,
 
-    pipeline: Option<forward::Pipeline<R>>,
+    pipeline: Option<flat::Pipeline<R>>,
 
     // debug
     debug: gfx_debug_draw::DebugRenderer<R, F>,
@@ -243,7 +243,7 @@ impl<R, D, F> Renderer<R, D, F>
 
         use gfx::tex::WrapMode::Tile;
 
-        let pipeline = forward::Pipeline::new(&mut factory);
+        let pipeline = flat::Pipeline::new(&mut factory);
         let (tx, rx) = channel::channel();
 
         let text = gfx_text::new(factory.clone()).unwrap();
