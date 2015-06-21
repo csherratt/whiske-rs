@@ -12,12 +12,14 @@ extern crate gfx_scene;
 extern crate gfx_device_gl;
 extern crate gfx_pipeline;
 extern crate gfx_text;
+extern crate gfx_vr;
 
 extern crate engine;
 extern crate draw_queue;
 extern crate pulse;
 extern crate cgmath;
 extern crate image;
+extern crate vr;
 
 use std::collections::{HashMap, HashSet};
 use snowstorm::channel;
@@ -43,7 +45,10 @@ use gfx_pipeline::{Material, Transparency, flat, Pipeline};
 use gfx::device::Resources;
 use image::GenericImage;
 
-use cgmath::{Bound, Relation, Transform, BaseFloat, Decomposed, Vector3, Quaternion};
+use cgmath::{
+    Bound, Relation, Transform, BaseFloat, AffineMatrix3,
+    Decomposed, Vector3, Quaternion, Matrix4
+};
 
 struct GeometrySlice<R: Resources> {
     mesh: Mesh<R>,
@@ -97,14 +102,14 @@ pub struct Renderer<R: Resources, D, F: Factory<R>> {
 pub struct Position(pub HashMap<Entity, Solved>);
 
 pub struct MaterializedCamera {
-    transform: Decomposed<f32, Vector3<f32>, Quaternion<f32>>,
+    transform: AffineMatrix3<f32>,
     projection: cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>,
 }
 
 impl gfx_scene::Node for MaterializedCamera {
-    type Transform = Decomposed<f32, Vector3<f32>, Quaternion<f32>>;
+    type Transform = AffineMatrix3<f32>;
 
-    fn get_transform(&self) -> Decomposed<f32, Vector3<f32>, Quaternion<f32>> {
+    fn get_transform(&self) -> Self::Transform {
         self.transform
     }
 }
@@ -118,16 +123,16 @@ impl gfx_scene::Camera<f32> for MaterializedCamera {
 }
 
 pub struct MaterializedEntity<R: gfx::Resources, M> {
-    transform: Decomposed<f32, Vector3<f32>, Quaternion<f32>>,
+    transform: AffineMatrix3<f32>,
     mesh: gfx::Mesh<R>,
     fragments: [gfx_scene::Fragment<R, M>; 1]
 
 }
 
 impl<R: gfx::Resources, M> gfx_scene::Node for MaterializedEntity<R, M> {
-    type Transform = Decomposed<f32, Vector3<f32>, Quaternion<f32>>;
+    type Transform = AffineMatrix3<f32>;
 
-    fn get_transform(&self) -> Decomposed<f32, Vector3<f32>, Quaternion<f32>> {
+    fn get_transform(&self) -> AffineMatrix3<f32> {
         self.transform
     }
 }
@@ -170,7 +175,7 @@ impl<R: Resources, D, F: Factory<R>> AbstractScene<R> for Renderer<R, D, F> {
                    self.position.0.get(&eid)) {
                 (Some(a), Some(b), Some(c)) => {
                     Some(MaterializedEntity{
-                        transform: c.0,
+                        transform: AffineMatrix3{mat: c.0.into()},
                         mesh: a.mesh.clone(),
                         fragments: [gfx_scene::Fragment{
                             material: b.clone(),
@@ -237,16 +242,15 @@ impl<R, D, F> Renderer<R, D, F>
     pub fn new(graphics: GraphicsSink,
                position: TransformOutput,
                scene: SceneOutput,
-               device: D,
-               mut factory: F) -> (RendererInput, Renderer<R, D, F>) {
+               mut ra: engine::RenderArgs<D, F>) -> (RendererInput, Renderer<R, D, F>) {
 
         use gfx::tex::WrapMode::Tile;
 
-        let pipeline = flat::Pipeline::new(&mut factory);
+        let pipeline = flat::Pipeline::new(&mut ra.factory);
         let (tx, rx) = channel::channel();
 
-        let text = gfx_text::new(factory.clone()).unwrap();
-        let sampler = factory.create_sampler(
+        let text = gfx_text::new(ra.factory.clone()).unwrap();
+        let sampler = ra.factory.create_sampler(
             gfx::tex::SamplerInfo{
                 filtering: gfx::tex::FilterMethod::Mipmap,
                 wrap_mode: (Tile, Tile, Tile),
@@ -258,8 +262,8 @@ impl<R, D, F> Renderer<R, D, F>
 
         (RendererInput(tx),
          Renderer {
-            device: device,
-            factory: factory,
+            device: ra.device,
+            factory: ra.factory,
             graphics: graphics,
             transform_input: position,
             render_input: rx,
@@ -576,8 +580,8 @@ impl<R, D, F> Renderer<R, D, F>
                     projection: c.0.clone(),
                     transform: self.position.0
                                    .get(&cid)
-                                   .map(|x| x.0.clone())
-                                   .unwrap_or_else(|| Decomposed::identity())
+                                   .map(|x| AffineMatrix3{mat: x.0.into()})
+                                   .unwrap_or_else(|| AffineMatrix3::identity())
                 }, c.1))
             } else {
                 None
@@ -594,7 +598,6 @@ impl<R, D, F> Renderer<R, D, F>
             self.pipeline = Some(pipeline);
 
             for (_, text) in self.debug_text.iter() {
-                println!("{:?}", text);
                 self.text.add(
                     &text.text, text.start, text.color
                 );

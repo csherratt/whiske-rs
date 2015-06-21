@@ -23,7 +23,7 @@ fn main() {
 
     engine.start_input_processor(move |sched, msgs| process_input(sched, 0, msgs));
 
-    engine.start_render(|_,_,_|{
+    engine.start_render(|_,_|{
         println!("to do render here!");
         Box::new(move |_, stream| {
             stream.out.window.swap_buffers();

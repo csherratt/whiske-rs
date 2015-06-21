@@ -4,6 +4,8 @@ extern crate gfx;
 extern crate gfx_device_gl;
 extern crate gfx_window_glfw;
 extern crate glfw;
+extern crate vr;
+extern crate gfx_vr;
 
 use fibe::*;
 use glfw::WindowEvent;
@@ -18,8 +20,14 @@ pub struct Engine<D: gfx::Device, F, R: gfx::Resources> {
     input: (Sender<WindowEvent>, Receiver<WindowEvent>),
     pool: fibe::Frontend,
     window: Window<D, R>,
-    render_args: Option<(D, F)>,
-    render: Option<Box<FnMut(&mut fibe::Schedule, &mut Window<D, R>)>>
+    render_args: Option<RenderArgs<D, F>>,
+    render: Option<Box<FnMut(&mut fibe::Schedule, &mut Window<D, R>)>>,
+}
+
+pub struct RenderArgs<D: gfx::Device, F> {
+    pub device: D,
+    pub factory: F,
+    pub vr: Option<vr::IVRSystem>
 }
 
 impl Engine<gfx_device_gl::Device,
@@ -30,10 +38,22 @@ impl Engine<gfx_device_gl::Device,
                            gfx_device_gl::Factory,
                            gfx_device_gl::Resources> {
 
-        let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
-        let (window, events) = glfw.create_window(800, 600, "whiske-rs", glfw::WindowMode::Windowed).unwrap();
+        let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+        let vr = vr::IVRSystem::init();
+
+        let (window, events) = if let Ok(ref vr) = vr {
+            gfx_vr::build_window(&mut glfw, vr)
+        } else {
+            glfw.create_window(800, 600, "whiske-rs", glfw::WindowMode::Windowed)
+        }.unwrap();
 
         let (stream, device, factory) = gfx_window_glfw::init(window);
+
+        let ra = RenderArgs {
+            vr: vr.ok(),
+            device: device,
+            factory: factory
+        };
 
         Engine {
             glfw: glfw,
@@ -41,7 +61,7 @@ impl Engine<gfx_device_gl::Device,
             input: channel(),
             pool: fibe::Frontend::new(),
             window: stream,
-            render_args: Some((device, factory)),
+            render_args: Some(ra),
             render: None
         }
     }
@@ -67,10 +87,10 @@ impl<D, F, R> Engine<D, F, R>
     /// Fetch a copy of the input stream and run actor
     /// with the input stream as a input
     pub fn start_render<C>(&mut self, render: C)
-        where C: FnOnce(&mut fibe::Schedule, D, F) -> Box<FnMut(&mut fibe::Schedule, &mut Window<D, R>)> {
+        where C: FnOnce(&mut fibe::Schedule, RenderArgs<D, F>) -> Box<FnMut(&mut fibe::Schedule, &mut Window<D, R>)> {
 
-        let (device, factory) = self.render_args.take().expect("Only one render can be created");
-        let render = render(&mut self.pool, device, factory);
+        let ra = self.render_args.take().expect("Only one render can be created");
+        let render = render(&mut self.pool, ra);
         self.render = Some(render);
     }
 

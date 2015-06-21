@@ -65,8 +65,8 @@ fn main() {
     let (gsink, gsrc) = graphics::GraphicsSource::new();
 
     let (read, set) = Future::new();
-    engine.start_render(|_, render, device|{
-        let (input, mut renderer) = renderer::Renderer::new(gsink, toutput, soutput, render, device);
+    engine.start_render(|_, ra|{
+        let (input, mut renderer) = renderer::Renderer::new(gsink, toutput, soutput, ra);
         set.set(input);
         Box::new(move |sched, stream| {
             renderer.draw(sched, stream);
