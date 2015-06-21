@@ -1,6 +1,6 @@
 
 
-extern crate glutin;
+extern crate glfw;
 extern crate snowstorm;
 extern crate transform;
 extern crate entity;
@@ -11,8 +11,7 @@ extern crate camera;
 
 use std::f32;
 use entity::Entity;
-use glutin::{Event, VirtualKeyCode};
-use glutin::ElementState::{Pressed, Released};
+use glfw::{WindowEvent, Key, Action};
 use transform::{TransformInput, Delta};
 use snowstorm::channel::Receiver;
 use fibe::{Schedule, task};
@@ -21,7 +20,7 @@ use cgmath::{Decomposed, Quaternion, Vector3, rad, Rotation3, Angle};
 pub fn no_clip(sched: &mut Schedule,
                entity: Entity,
                mut last: Decomposed<f32, Vector3<f32>, Quaternion<f32>>,
-               mut input: Receiver<Event>,
+               mut input: Receiver<WindowEvent>,
                mut output: TransformInput) {
     
     let mut speed_foward = 0.;
@@ -33,7 +32,7 @@ pub fn no_clip(sched: &mut Schedule,
         loop {
             for msg in input.copy_iter(true) {
                 match msg {
-                    Event::MouseMoved((x, y)) => {
+                    WindowEvent::Pos(x, y) => {
                         let (dx, dy) = match last_mouse {
                             Some((ox, oy)) => ((x - ox) as f32, (y - oy) as f32),
                             None => (0., 0.)
@@ -53,28 +52,28 @@ pub fn no_clip(sched: &mut Schedule,
                         last.rot = Rotation3::from_euler(rx, ry, rz);
                         last_mouse = Some((x, y));
                     }
-                    Event::KeyboardInput(Pressed, _, Some(VirtualKeyCode::W)) => {
+                    WindowEvent::Key(Key::W, _, Action::Press, _) => {
                         speed_foward = 1.;
                     }
-                    Event::KeyboardInput(Pressed, _, Some(VirtualKeyCode::S)) => {
+                    WindowEvent::Key(Key::S, _, Action::Press, _) => {
                         speed_foward = -1.;
                     }
-                    Event::KeyboardInput(Released, _, Some(VirtualKeyCode::W)) => {
+                    WindowEvent::Key(Key::W, _, Action::Release, _) => {
                         speed_foward = 0.;
                     }
-                    Event::KeyboardInput(Released, _, Some(VirtualKeyCode::S)) => {
+                    WindowEvent::Key(Key::S, _, Action::Release, _) => {
                         speed_foward = 0.;
                     }
-                    Event::KeyboardInput(Pressed, _, Some(VirtualKeyCode::A)) => {
+                    WindowEvent::Key(Key::A, _, Action::Press, _) => {
                         speed_right = -1.;
                     }
-                    Event::KeyboardInput(Pressed, _, Some(VirtualKeyCode::D)) => {
+                    WindowEvent::Key(Key::D, _, Action::Press, _) => {
                         speed_right = 1.;
                     }
-                    Event::KeyboardInput(Released, _, Some(VirtualKeyCode::A)) => {
+                    WindowEvent::Key(Key::A, _, Action::Release, _) => {
                         speed_right = 0.;
                     }
-                    Event::KeyboardInput(Released, _, Some(VirtualKeyCode::D)) => {
+                    WindowEvent::Key(Key::D, _, Action::Release, _) => {
                         speed_right = 0.;
                     }
                     _ => ()

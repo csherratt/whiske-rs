@@ -2,18 +2,20 @@ extern crate fibe;
 extern crate snowstorm;
 extern crate gfx;
 extern crate gfx_device_gl;
-extern crate gfx_window_glutin;
-extern crate glutin;
+extern crate gfx_window_glfw;
+extern crate glfw;
 
 use fibe::*;
-use glutin::Event;
+use glfw::WindowEvent;
 
 pub use snowstorm::channel::*;
 
-pub type Window<D, R> = gfx::extra::stream::OwnedStream<D, gfx_window_glutin::Output<R>>;
+pub type Window<D, R> = gfx::extra::stream::OwnedStream<D, gfx_window_glfw::Output<R>>;
 
 pub struct Engine<D: gfx::Device, F, R: gfx::Resources> {
-    input: (Sender<Event>, Receiver<Event>),
+    glfw: glfw::Glfw,
+    events: std::sync::mpsc::Receiver<(f64, WindowEvent)>,
+    input: (Sender<WindowEvent>, Receiver<WindowEvent>),
     pool: fibe::Frontend,
     window: Window<D, R>,
     render_args: Option<(D, F)>,
@@ -27,11 +29,15 @@ impl Engine<gfx_device_gl::Device,
     pub fn new() -> Engine<gfx_device_gl::Device,
                            gfx_device_gl::Factory,
                            gfx_device_gl::Resources> {
-        let (stream, device, factory) = gfx_window_glutin::init(
-            glutin::Window::new().unwrap()
-        );
+
+        let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+        let (window, events) = glfw.create_window(800, 600, "whiske-rs", glfw::WindowMode::Windowed).unwrap();
+
+        let (stream, device, factory) = gfx_window_glfw::init(window);
 
         Engine {
+            glfw: glfw,
+            events: events,
             input: channel(),
             pool: fibe::Frontend::new(),
             window: stream,
@@ -50,7 +56,7 @@ impl<D, F, R> Engine<D, F, R>
     /// Fetch a copy of the input stream and run actor
     /// with the input stream as a input
     pub fn start_input_processor<C>(&mut self, actor: C)
-        where C: FnOnce(&mut fibe::Schedule, Receiver<Event>)+Send+'static {
+        where C: FnOnce(&mut fibe::Schedule, Receiver<WindowEvent>)+Send+'static {
         
         let rx = self.input.1.clone();
         task(|sched| {
@@ -82,9 +88,10 @@ impl<D, F, R> Engine<D, F, R>
         let mut render = self.render.take().expect("no render installed!");
 
         while run {
-            for event in self.window.out.window.poll_events() {
-                match  event {
-                    glutin::Event::Closed => {
+            self.glfw.poll_events();
+            for (_, event) in glfw::flush_messages(&self.events) {
+                match event {
+                    WindowEvent::Close => {
                         run = false;
                     }
                     _ => ()

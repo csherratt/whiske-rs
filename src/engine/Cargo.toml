@@ -15,5 +15,5 @@ git = "https://github.com/slide-rs/fibe-rs.git"
 [dependencies]
 gfx = "*"
 gfx_device_gl = "*"
-glutin = "*"
-gfx_window_glutin = "*"
+glfw = "*"
+gfx_window_glfw = "*"
