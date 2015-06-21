@@ -21,9 +21,7 @@ fn process_input(sched: &mut fibe::Schedule, index: u32, mut ch: Receiver<Event>
 fn main() {
     let mut engine = engine::Engine::new();
 
-    for i in 0..1 {
-        engine.start_input_processor(move |sched, msgs| process_input(sched, i, msgs));
-    }
+    engine.start_input_processor(move |sched, msgs| process_input(sched, i, msgs));
 
     engine.start_render(|_,_,_|{
         println!("to do render here!");

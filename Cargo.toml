@@ -28,3 +28,7 @@ version = "*"
 path = "src/transform"
 version = "*"
 
+[dependencies.whiske-rs-graphics]
+path = "src/graphics"
+version = "*"
+

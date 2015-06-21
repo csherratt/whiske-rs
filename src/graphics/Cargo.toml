@@ -1,0 +1,28 @@
+[package]
+name = "whiske-rs-graphics"
+version = "0.1.0"
+authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
+
+[lib]
+name="graphics"
+
+[dependencies]
+pulse="*"
+gfx="*"
+image="*"
+
+[dependencies.entity]
+git = "https://github.com/csherratt/entity.git"
+
+[dependencies.whiske-rs-parent]
+path = "../parent"
+
+[dependencies.snowstorm]
+git = "https://github.com/csherratt/snowstorm.git"
+
+[dependencies.fibe]
+git = "https://github.com/slide-rs/fibe-rs.git"
+
+[dependencies.future_pulse]
+git = "https://github.com/slide-rs/future_pulse.git"
+
