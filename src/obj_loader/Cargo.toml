@@ -1,7 +1,10 @@
 [package]
-name = "obj_loader"
+name = "whiske-rs-obj_loader"
 version = "0.1.0"
 authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
+
+[lib]
+name="obj_loader"
 
 [dependencies]
 genmesh="*"
@@ -13,14 +16,14 @@ image="*"
 cgmath="*"
 time="*"
 
-[dependencies.slide-rs-engine]
-git = "https://github.com/csherratt/engine.git"
-
 [dependencies.entity]
 git = "https://github.com/csherratt/entity.git"
 
-[dependencies.graphics]
-git = "https://github.com/csherratt/graphics.git"
+[dependencies.whiske-rs-engine]
+path = "../engine"
+
+[dependencies.whiske-rs-graphics]
+path = "../engine"
 
 [dependencies.fibe]
 git = "https://github.com/slide-rs/fibe-rs.git"
@@ -28,18 +31,17 @@ git = "https://github.com/slide-rs/fibe-rs.git"
 [dependencies.future_pulse]
 git = "https://github.com/slide-rs/future_pulse.git"
 
-[dev-dependencies.renderer]
-git = "https://github.com/csherratt/renderer.git"
-
-[dev-dependencies.transform]
-git = "https://github.com/csherratt/transform.git"
-
-[dev-dependencies.scene]
-git = "https://github.com/csherratt/scene.git"
-
-[dev-dependencies.parent]
-git = "https://github.com/csherratt/parent.git"
-
 [dev-dependencies.no_clip]
 git = "https://github.com/csherratt/no_clip.git"
 
+[dev-dependencies.whiske-rs-renderer]
+path = "../renderer"
+
+[dev-dependencies.whiske-rs-transform]
+path = "../transform"
+
+[dev-dependencies.whiske-rs-scene]
+path = "../scene"
+
+[dev-dependencies.whiske-rs-parent]
+path = "../parent"

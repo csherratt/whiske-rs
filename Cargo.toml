@@ -44,4 +44,9 @@ version = "*"
 path = "src/std_graphics"
 version = "*"
 
+[dependencies.whiske-rs-obj_loader]
+path = "src/obj_loader"
+version = "*"
+
+
 
