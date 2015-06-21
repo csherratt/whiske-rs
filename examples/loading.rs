@@ -122,7 +122,6 @@ fn main() {
 
     engine.start_input_processor(move |_, mut msg| {
         loop {
-            println!("input {:?}", thread::current());
             for _ in msg.copy_iter(true) {}
             msg.next_frame();
             sink.next_frame();

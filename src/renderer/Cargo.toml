@@ -40,17 +40,3 @@ git = "https://github.com/csherratt/snowstorm.git"
 [dependencies.fibe]
 git = "https://github.com/slide-rs/fibe-rs.git"
 
-[dev-dependencies]
-time="*"
-
-[dev-dependencies.future_pulse]
-git = "https://github.com/csherratt/future_pulse.git"
-
-[dev-dependencies.parent]
-git = "https://github.com/csherratt/parent.git"
-
-[dev-dependencies.no_clip]
-git = "https://github.com/csherratt/no_clip.git"
-
-[dev-dependencies.std_graphics]
-path = "../std_graphics"

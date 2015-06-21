@@ -52,5 +52,9 @@ version = "*"
 path = "src/no_clip"
 version = "*"
 
+[dev-dependencies]
+time="*"
+image="*"
 
-
+[dev-dependencies.future_pulse]
+git = "https://github.com/csherratt/future_pulse.git"
