@@ -53,5 +53,4 @@ git = "https://github.com/csherratt/parent.git"
 git = "https://github.com/csherratt/no_clip.git"
 
 [dev-dependencies.std_graphics]
-git = "https://github.com/whiske-rs/std_graphics.git"
-
+path = "../std_graphics"

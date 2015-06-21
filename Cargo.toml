@@ -40,5 +40,8 @@ version = "*"
 path = "src/scene"
 version = "*"
 
+[dependencies.whiske-rs-std_graphics]
+path = "src/std_graphics"
+version = "*"
 
 

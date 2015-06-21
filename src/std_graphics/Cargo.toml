@@ -1,0 +1,24 @@
+[package]
+name = "whiske-rs-std_graphics"
+version = "0.1.0"
+authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
+
+[lib]
+name="std_graphics"
+
+[dependencies]
+cgmath="*"
+genmesh="*"
+pulse="*"
+
+[dependencies.entity]
+git = "https://github.com/csherratt/entity.git"
+
+[dependencies.whiske-rs-graphics]
+path = "../graphics"
+
+[dependencies.fibe]
+git = "https://github.com/slide-rs/fibe-rs.git"
+
+[dependencies.future_pulse]
+git = "https://github.com/slide-rs/future_pulse.git"
