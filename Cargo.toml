@@ -12,6 +12,13 @@ git = "https://github.com/csherratt/snowstorm.git"
 [dependencies.fibe]
 git = "https://github.com/slide-rs/fibe-rs.git"
 
+[dependencies.entity]
+git = "https://github.com/csherratt/entity.git"
+
 [dependencies.whiske-rs-engine]
 path = "src/engine"
+version = "*"
+
+[dependencies.whiske-rs-parent]
+path = "src/parent"
 version = "*"

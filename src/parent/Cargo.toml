@@ -1,7 +1,10 @@
 [package]
-name = "parent"
+name = "whiske-rs-parent"
 version = "0.1.0"
 authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
+
+[lib]
+name="parent"
 
 [dependencies]
 pulse="*"
