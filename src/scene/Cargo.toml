@@ -1,0 +1,19 @@
+[package]
+name = "scene"
+version = "0.1.0"
+authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
+
+[dependencies]
+pulse = "*"
+
+[dependencies.fibe]
+git = "https://github.com/slide-rs/fibe-rs"
+
+[dependencies.entity]
+git = "https://github.com/csherratt/entity"
+
+[dependencies.parent]
+git = "https://github.com/csherratt/parent"
+
+[dependencies.snowstorm]
+git = "https://github.com/csherratt/snowstorm"
