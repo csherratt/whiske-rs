@@ -47,7 +47,7 @@ use image::GenericImage;
 
 use cgmath::{
     Bound, Relation, Transform, BaseFloat, AffineMatrix3,
-    Decomposed, Vector3, Quaternion, Matrix4
+    Decomposed, Vector3, Quaternion, Matrix4, Matrix
 };
 
 struct GeometrySlice<R: Resources> {
@@ -64,7 +64,7 @@ impl<S: BaseFloat> Bound<S> for NullBound {
     }
 }
 
-pub struct Renderer<R: Resources, D, F: Factory<R>> {
+pub struct Renderer<R: Resources, C: gfx::CommandBuffer<R>, D: gfx::Device, F: Factory<R>> {
     device: D,
     factory: F,
 
@@ -95,7 +95,9 @@ pub struct Renderer<R: Resources, D, F: Factory<R>> {
 
     // debug
     sampler: gfx::handle::Sampler<R>,
-    text: gfx_text::Renderer<R, F>
+    text: gfx_text::Renderer<R, F>,
+    ivr: Option<vr::IVRSystem>,
+    gvr: Option<gfx_vr::Render<R, C>>
 
 }
 
@@ -103,7 +105,7 @@ pub struct Position(pub HashMap<Entity, Solved>);
 
 pub struct MaterializedCamera {
     transform: AffineMatrix3<f32>,
-    projection: cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>,
+    projection: Matrix4<f32>
 }
 
 impl gfx_scene::Node for MaterializedCamera {
@@ -115,10 +117,10 @@ impl gfx_scene::Node for MaterializedCamera {
 }
 
 impl gfx_scene::Camera<f32> for MaterializedCamera {
-    type Projection = cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>;
+    type Projection = AffineMatrix3<f32>;
 
-    fn get_projection(&self) -> cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>{
-        self.projection
+    fn get_projection(&self) -> Self::Projection {
+        AffineMatrix3{mat: self.projection}
     }
 }
 
@@ -145,7 +147,12 @@ impl<R: gfx::Resources, M> gfx_scene::Entity<R, M> for MaterializedEntity<R, M> 
     fn get_fragments(&self) -> &[gfx_scene::Fragment<R, M>] { &self.fragments[..] }
 }
 
-impl<R: Resources, D, F: Factory<R>> AbstractScene<R> for Renderer<R, D, F> {
+impl<R, C, D, F> AbstractScene<R> for Renderer<R, C, D, F>
+    where R: Resources,
+          C: gfx::CommandBuffer<R>,
+          D: gfx::Device,
+          F: Factory<R>
+{
     type ViewInfo = gfx_pipeline::ViewInfo<f32>;
     type Material = Material<R>;
     type Camera = MaterializedCamera;
@@ -233,24 +240,24 @@ impl entity::WriteEntity<Entity, DebugText> for RendererInput {
     }
 }
 
-impl<R, D, F> Renderer<R, D, F>
-    where R: Resources,
-          D: gfx::Device<Resources=R>,
-          F: gfx::Factory<R>+Clone
+impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device, F>
+    where F: gfx::Factory<gfx_device_gl::Resources>+Clone
 
 {
     pub fn new(graphics: GraphicsSink,
                position: TransformOutput,
                scene: SceneOutput,
-               mut ra: engine::RenderArgs<D, F>) -> (RendererInput, Renderer<R, D, F>) {
+               ra: engine::RenderArgs<Device, F>) -> (RendererInput, Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device, F>) {
 
         use gfx::tex::WrapMode::Tile;
 
-        let pipeline = flat::Pipeline::new(&mut ra.factory);
+        let (device, mut factory, vr) = (ra.device, ra.factory, ra.vr);
+
+        let pipeline = flat::Pipeline::new(&mut factory);
         let (tx, rx) = channel::channel();
 
-        let text = gfx_text::new(ra.factory.clone()).unwrap();
-        let sampler = ra.factory.create_sampler(
+        let text = gfx_text::new(factory.clone()).unwrap();
+        let sampler = factory.create_sampler(
             gfx::tex::SamplerInfo{
                 filtering: gfx::tex::FilterMethod::Mipmap,
                 wrap_mode: (Tile, Tile, Tile),
@@ -260,10 +267,13 @@ impl<R, D, F> Renderer<R, D, F>
             }
         );
 
+
+        let gfx_vr = vr.as_ref().map(|vr| gfx_vr::Render::new(&mut factory, vr));
+
         (RendererInput(tx),
          Renderer {
-            device: ra.device,
-            factory: ra.factory,
+            device: device,
+            factory: factory,
             graphics: graphics,
             transform_input: position,
             render_input: rx,
@@ -283,10 +293,20 @@ impl<R, D, F> Renderer<R, D, F>
             cameras: HashMap::new(),
             textures: HashMap::new(),
             sampler: sampler,
-            text: text
+            text: text,
+            ivr: vr,
+            gvr: gfx_vr
         })
     }
+}
 
+impl<R, C, D, F> Renderer<R, C, D, F>
+    where R: Resources,
+          C: gfx::CommandBuffer<R>,
+          D: gfx::Device<Resources=R, CommandBuffer=C>,
+          F: gfx::Factory<R>+Clone
+
+{
     fn add_vertex(&mut self, entity: Entity, vertex: VertexData) {
         let dst = self.vertex.entry(entity).or_insert_with(|| (None, None));
         match vertex {
@@ -552,7 +572,7 @@ impl<R, D, F> Renderer<R, D, F>
     }
 
     fn sync(&mut self) {
-        let mut select: SelectMap<fn(&mut Renderer<R, D, F>) -> Option<Signal>> = SelectMap::new();
+        let mut select: SelectMap<fn(&mut Renderer<R, C, D, F>) -> Option<Signal>> = SelectMap::new();
         select.add(self.graphics.0.signal(), Renderer::sync_graphics);
         select.add(self.transform_input.signal(), Renderer::sync_position);
         select.add(self.scene_output.signal(), Renderer::sync_scene);
@@ -577,7 +597,7 @@ impl<R, D, F> Renderer<R, D, F>
         let camera = if let Some(cid) = self.primary {
             if let Some(c) = self.cameras.get(&cid) {
                 Some((MaterializedCamera {
-                    projection: c.0.clone(),
+                    projection: c.0.clone().into(),
                     transform: self.position.0
                                    .get(&cid)
                                    .map(|x| AffineMatrix3{mat: x.0.into()})
@@ -590,12 +610,30 @@ impl<R, D, F> Renderer<R, D, F>
             None
         };
 
-        if let Some((camera, scene)) = camera {
+        if let Some((mut camera, scene)) = camera {
             self.scene = scene;
 
             let mut pipeline = self.pipeline.take().unwrap();
-            pipeline.render(self, &camera, window).unwrap();
+            let ivr = self.ivr.take();
+            let mut gvr = self.gvr.take();
+
+            match (&ivr, &mut gvr) {
+                (&Some(ref ivr), &mut Some(ref mut gvr)) => {
+                    let old = camera.transform.mat;
+                    gvr.render_into(&ivr, |s, p, v| {
+                        camera.projection = p;
+                        camera.transform.mat = old.mul_m(&v.invert().unwrap());
+                        pipeline.render(self, &camera, s).unwrap();
+                    });
+                    gvr.render_frame(&ivr, &mut self.device, window);
+                }
+                _ => {
+                    pipeline.render(self, &camera, window).unwrap();
+                }
+            }
             self.pipeline = Some(pipeline);
+            self.ivr = ivr;
+            self.gvr = gvr;
 
             for (_, text) in self.debug_text.iter() {
                 self.text.add(
