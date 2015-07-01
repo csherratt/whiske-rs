@@ -12,7 +12,6 @@ use std::path::PathBuf;
 use std::io::{BufReader, Error};
 use std::fs::File;
 use std::sync::Arc;
-use std::thread;
 
 use image::ImageError;
 use pulse::{SelectMap, Signals};
@@ -110,7 +109,7 @@ fn load_geometry(sched: &mut Schedule,
         for g in o.group_iter() {
             let mut src = src.clone();
             let object = object.clone();
-            let name = (o.name.clone(), g.name.clone());
+            let name = (o.name.clone(), format!("{}.{}", g.name, g.index));
             let idx = g.indices.clone();
             let geo = Geometry::new();
             res.insert(name, (geo, g.material.clone()));
