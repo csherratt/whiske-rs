@@ -27,6 +27,7 @@ pub fn no_clip(sched: &mut Schedule,
     let mut speed_right = 0.;
     let speed_up = 0.;
     let mut last_mouse = None;
+    let rate = 2. / 60.;
 
     task(move |_| {
         loop {
@@ -53,10 +54,10 @@ pub fn no_clip(sched: &mut Schedule,
                         last_mouse = Some((x, y));
                     }
                     WindowEvent::Key(Key::W, _, Action::Press, _) => {
-                        speed_foward = 1.;
+                        speed_foward = rate;
                     }
                     WindowEvent::Key(Key::S, _, Action::Press, _) => {
-                        speed_foward = -1.;
+                        speed_foward = -rate;
                     }
                     WindowEvent::Key(Key::W, _, Action::Release, _) => {
                         speed_foward = 0.;
@@ -65,10 +66,10 @@ pub fn no_clip(sched: &mut Schedule,
                         speed_foward = 0.;
                     }
                     WindowEvent::Key(Key::A, _, Action::Press, _) => {
-                        speed_right = -1.;
+                        speed_right = -rate;
                     }
                     WindowEvent::Key(Key::D, _, Action::Press, _) => {
-                        speed_right = 1.;
+                        speed_right = rate;
                     }
                     WindowEvent::Key(Key::A, _, Action::Release, _) => {
                         speed_right = 0.;

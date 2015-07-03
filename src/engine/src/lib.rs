@@ -8,7 +8,7 @@ extern crate vr;
 extern crate gfx_vr;
 
 use fibe::*;
-use glfw::WindowEvent;
+use glfw::{WindowEvent, Context};
 
 pub use snowstorm::channel::*;
 
@@ -47,6 +47,9 @@ impl Engine<gfx_device_gl::Device,
             glfw.create_window(800, 600, "whiske-rs", glfw::WindowMode::Windowed)
         }.unwrap();
         window.set_all_polling(true);
+        window.make_current();
+        glfw.set_swap_interval(0);
+
 
         let (stream, device, factory) = gfx_window_glfw::init(window);
 

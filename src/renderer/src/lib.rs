@@ -41,7 +41,7 @@ use gfx::{
 use gfx::traits::{FactoryExt, Stream};
 use gfx_device_gl::{Device};
 use gfx_scene::{AbstractScene, Report, Error, Context, Frustum};
-use gfx_pipeline::{Material, Transparency, flat, Pipeline};
+use gfx_pipeline::{Material, Transparency, forward, Pipeline};
 use gfx::device::Resources;
 use image::GenericImage;
 
@@ -91,7 +91,7 @@ pub struct Renderer<R: Resources, C: gfx::CommandBuffer<R>, D: gfx::Device, F: F
     scene: Scene,
     scenes: HashMap<Scene, HashSet<Entity>>,
 
-    pipeline: Option<flat::Pipeline<R>>,
+    pipeline: Option<forward::Pipeline<R>>,
 
     // debug
     sampler: gfx::handle::Sampler<R>,
@@ -253,7 +253,21 @@ impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device,
 
         let (device, mut factory, vr) = (ra.device, ra.factory, ra.vr);
 
-        let pipeline = flat::Pipeline::new(&mut factory);
+        let mut pipeline = forward::Pipeline::new(&mut factory).unwrap();
+        pipeline.background = Some([1.0; 4]);
+        pipeline.phase.technique.lights = vec![
+            gfx_pipeline::Light{
+                active: true,
+                kind: gfx_pipeline::light::Kind::Omni,
+                color: [1., 1., 1., 1.],
+                attenuation: gfx_pipeline::light::Attenuation::Spherical{
+                    intensity: 1.,
+                    distance: 1000., 
+                },
+                position: cgmath::Vector4::new(1., 1., 1., 1.,)
+
+            }
+        ];
         let (tx, rx) = channel::channel();
 
         let text = gfx_text::new(factory.clone()).unwrap();
@@ -285,7 +299,7 @@ impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device,
             geometry_slice: HashMap::new(),
             binding: HashMap::new(),
             debug_text: HashMap::new(),
-            pipeline: Some(pipeline.unwrap()),
+            pipeline: Some(pipeline),
             scenes: HashMap::new(),
             scene_output: scene,
             scene: Scene::new(),

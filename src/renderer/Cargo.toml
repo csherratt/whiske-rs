@@ -14,7 +14,6 @@ cgmath="*"
 draw_queue="*"
 gfx_phase="0.4"
 gfx_scene="0.4"
-gfx_pipeline="0.3"
 gfx_text="*"
 image="*"
 
@@ -45,3 +44,6 @@ branch = "openvr"
 
 [dependencies.gfx_vr]
 git = "https://github.com/csherratt/gfx_vr.git"
+
+[dependencies.gfx_pipeline]
+git = "https://github.com/csherratt/gfx_pipeline.git"

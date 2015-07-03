@@ -19,9 +19,12 @@ extern crate fibe;
 extern crate future_pulse;
 extern crate genmesh;
 extern crate pulse;
+extern crate image;
+
+use image::{DynamicImage, Rgba, GenericImage};
 
 use graphics::{Vertex, VertexPosTexNorm, PosTexNorm, VertexBuffer,
-    Geometry, Material, Primative, Kd, GraphicsSource
+    Geometry, Material, Primative, Kd, GraphicsSource, Texture
 };
 
 use genmesh::generators::{Plane, Cube, SphereUV};
@@ -106,7 +109,7 @@ pub struct StandardColors {
     pub maroon: Material,
     pub yellow: Material,
     pub olive: Material,
-    pub line: Material,
+    pub lime: Material,
     pub green: Material,
     pub aqua: Material,
     pub teal: Material,
@@ -118,12 +121,27 @@ pub struct StandardColors {
 
 #[derive(Copy, Clone, Debug)]
 pub struct StdMaterials {
-    pub flat: StandardColors
+    pub flat: StandardColors,
+    pub checkerboard: Material
 }
 
 impl StdMaterials {
     /// Load the Materials library
     pub fn load(sink: &mut GraphicsSource) -> StdMaterials {
+        let mut checkerboard = DynamicImage::new_rgba8(512, 512);
+        for x in 0..512 {
+            for y in 0..512 {
+                checkerboard.put_pixel(x, y,
+                    if (x ^ y) & 0x1 == 0 {
+                        Rgba([255, 255, 255, 255])
+                    } else {
+                        Rgba([  0,   0,   0, 255])
+                    }
+                );
+            }
+        }
+        let checkerboard = Texture::new().bind(checkerboard).write(sink);
+
         StdMaterials {
             flat: StandardColors {
                 white:   Material::new().bind(Kd([1.00, 1.00, 1.00, 1.])).write(sink),
@@ -134,7 +152,7 @@ impl StdMaterials {
                 maroon:  Material::new().bind(Kd([0.50, 0.00, 0.00, 1.])).write(sink),
                 yellow:  Material::new().bind(Kd([1.00, 1.00, 0.00, 1.])).write(sink),
                 olive:   Material::new().bind(Kd([0.50, 0.50, 0.00, 1.])).write(sink),
-                line:    Material::new().bind(Kd([0.00, 1.00, 0.00, 1.])).write(sink),
+                lime:    Material::new().bind(Kd([0.00, 1.00, 0.00, 1.])).write(sink),
                 green:   Material::new().bind(Kd([0.00, 0.50, 0.00, 1.])).write(sink),
                 aqua:    Material::new().bind(Kd([0.00, 1.00, 1.00, 1.])).write(sink),
                 teal:    Material::new().bind(Kd([0.00, 0.50, 0.50, 1.])).write(sink),
@@ -142,7 +160,8 @@ impl StdMaterials {
                 navy:    Material::new().bind(Kd([0.00, 0.00, 0.50, 1.])).write(sink),
                 fuchsia: Material::new().bind(Kd([1.00, 0.00, 1.00, 1.])).write(sink),
                 purple:  Material::new().bind(Kd([0.50, 0.00, 0.50, 1.])).write(sink)
-            }
+            },
+            checkerboard: Material::new().bind(Kd(checkerboard)).write(sink)
         }
 
     }
