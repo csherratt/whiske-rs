@@ -40,7 +40,6 @@ git = "https://github.com/slide-rs/fibe-rs.git"
 
 [dependencies.vr]
 git = "https://github.com/csherratt/vr-rs.git"
-branch = "openvr"
 
 [dependencies.gfx_vr]
 git = "https://github.com/csherratt/gfx_vr.git"
