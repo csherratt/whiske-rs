@@ -17,7 +17,7 @@ use image::ImageError;
 use pulse::{SelectMap, Signals};
 use fibe::{Schedule, task};
 use future_pulse::Future;
-use graphics::{GraphicsSource, Texture, VertexBuffer,
+use graphics::{Graphics, Texture, VertexBuffer,
     Ka, Kd, Ks, VertexPosTexNorm, Geometry, Primative,
     PosTexNorm
 };
@@ -34,7 +34,7 @@ use genmesh::{
 fn load_textures(sched: &mut Schedule,
                  path: PathBuf,
                  materials: &[Material],
-                 src: &GraphicsSource)
+                 src: &Graphics)
     -> HashMap<String, Future<Result<Texture, ImageError>>> {
     
     let mut map = HashMap::new();
@@ -71,7 +71,7 @@ fn load_material(sched: &mut Schedule, path: PathBuf) -> Future<Result<obj::Mtl,
 
 fn resolve_materials(materials: Vec<Material>,
                      texture: HashMap<String, Texture>,
-                     mut src: GraphicsSource) -> HashMap<String, graphics::Material> {
+                     mut src: Graphics) -> HashMap<String, graphics::Material> {
 
     let mut res = HashMap::new();
     for m in materials {
@@ -99,7 +99,7 @@ fn resolve_materials(materials: Vec<Material>,
 
 fn load_geometry(sched: &mut Schedule,
                  object: obj::Obj<String>,
-                 src: GraphicsSource) -> HashMap<(String, String), (Geometry, Option<String>)> {
+                 src: Graphics) -> HashMap<(String, String), (Geometry, Option<String>)> {
 
     let mut res = HashMap::new();
     let object = Arc::new(object);
@@ -174,7 +174,7 @@ fn load_geometry(sched: &mut Schedule,
     res
 }
 
-pub fn load(sched: &mut Schedule, path: PathBuf, src: GraphicsSource)
+pub fn load(sched: &mut Schedule, path: PathBuf, src: Graphics)
     -> Result<Future<HashMap<(String, String), (Geometry, Option<graphics::Material>)>>,
               std::io::Error> {
     

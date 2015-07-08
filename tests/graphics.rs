@@ -5,9 +5,9 @@ extern crate graphics;
 use graphics::*;
 use entity::*;
 
-#[test]
+/*#[test]
 fn create_vb() {
-    let (sink, mut source) = GraphicsSource::new();
+    let (sink, mut source) = graphics::new();
 
     let a = VertexBuffer::new()
         .bind((0..100).map(|_| VertexPos{position: [0., 0., 0.]}).collect())
@@ -26,7 +26,7 @@ fn create_vb() {
 
 #[test]
 fn material_bind() {
-    let (sink, mut source) = GraphicsSource::new();
+    let (sink, mut source) = graphics::new();
 
     let _ = Material::new()
         .bind(Ka([1f32, 2., 3., 1.]))
@@ -40,7 +40,7 @@ fn material_bind() {
 
 #[test]
 fn geometry() {
-    let (sink, mut source) = GraphicsSource::new();
+    let (sink, mut source) = graphics::new();
 
     let vb = VertexBuffer::new()
         .bind((0..100).map(|_| VertexPos{position: [0., 0., 0.]}).collect())
@@ -53,9 +53,9 @@ fn geometry() {
     drop((vb, sink, source, geo));
 }
 
-/*#[test]
+#[test]
 fn draw_bind() {
-    let (sink, mut source) = GraphicsSource::new();
+    let (sink, mut source) = graphics::new();
 
     let vb = VertexBuffer::new()
         .bind((0..100).map(|_| VertexPos{position: [0., 0., 0.]}).collect())

@@ -35,7 +35,7 @@ router!{
         [Material, MaterialComponent<[f32; 4]>] |
         [Material, MaterialComponent<Texture>] |
         [Texture, image::DynamicImage] |
-        [Geometry, GeometryData] => gsrc: graphics::GraphicsSource,
+        [Geometry, GeometryData] => graphics: graphics::Graphics,
         [Entity, DrawBinding] |
         [Entity, Camera] |
         [Entity, DebugText] |
@@ -50,7 +50,7 @@ router!{
 impl Router {
     fn next_frame(&mut self) {
         self.parent.next_frame();
-        self.gsrc.next_frame();
+        self.graphics.next_frame();
         self.scene.next_frame();
         self.transform.next_frame();
         self.renderer.next_frame();
@@ -62,11 +62,11 @@ fn main() {
     let (pinput, poutput) = parent::parent(engine.sched());
     let (sinput, soutput) = scene::scene(engine.sched(), poutput.clone());
     let (tinput, toutput) = transform::transform(engine.sched(), poutput.clone());
-    let (gsink, gsrc) = graphics::GraphicsSource::new();
+    let graphics = graphics::Graphics::new(engine.sched());
 
     let (read, set) = Future::new();
     engine.start_render(|_, ra|{
-        let (input, mut renderer) = renderer::Renderer::new(gsink, toutput, soutput, ra);
+        let (input, mut renderer) = renderer::Renderer::new(graphics.clone(), toutput, soutput, ra);
         set.set(input);
         Box::new(move |sched, stream| {
             renderer.draw(sched, stream);
@@ -74,15 +74,15 @@ fn main() {
     });
 
     let mut sink = Router {
-        gsrc: gsrc,
+        graphics: graphics,
         renderer: read.get(),
         transform: tinput,
         scene: sinput,
         parent: pinput
     };
 
-    let materials = std_graphics::StdMaterials::load(&mut sink.gsrc);
-    let shapes = std_graphics::StdGeometry::load(engine.sched(), sink.gsrc.clone());
+    let materials = std_graphics::StdMaterials::load(&mut sink.graphics);
+    let shapes = std_graphics::StdGeometry::load(engine.sched(), sink.graphics.clone());
     let shapes = shapes.get();
 
     let count = 20;

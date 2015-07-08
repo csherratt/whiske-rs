@@ -24,7 +24,7 @@ extern crate image;
 use image::{DynamicImage, Rgba, GenericImage};
 
 use graphics::{Vertex, VertexPosTexNorm, PosTexNorm, VertexBuffer,
-    Geometry, Material, Primative, Kd, GraphicsSource, Texture
+    Geometry, Material, Primative, Kd, Graphics, Texture
 };
 
 use genmesh::generators::{Plane, Cube, SphereUV};
@@ -127,7 +127,7 @@ pub struct StdMaterials {
 
 impl StdMaterials {
     /// Load the Materials library
-    pub fn load(sink: &mut GraphicsSource) -> StdMaterials {
+    pub fn load(sink: &mut Graphics) -> StdMaterials {
         let mut checkerboard = DynamicImage::new_rgba8(512, 512);
         for x in 0..512 {
             for y in 0..512 {
@@ -186,7 +186,7 @@ pub struct StdGeometry {
     pub sphere: Spheres,
 }
 
-fn build_sphere(mut sink: GraphicsSource, size: usize) -> Geometry {
+fn build_sphere(mut sink: Graphics, size: usize) -> Geometry {
     let (sphere_v, sphere_i) = build_vectors_poly(SphereUV::new(size, size));
     let vb = VertexBuffer::new()
                           .bind(sphere_v)
@@ -198,7 +198,7 @@ fn build_sphere(mut sink: GraphicsSource, size: usize) -> Geometry {
 }
 
 impl StdGeometry {
-    pub fn load(sched: &mut Schedule, mut sink: GraphicsSource) -> Future<StdGeometry> {
+    pub fn load(sched: &mut Schedule, mut sink: Graphics) -> Future<StdGeometry> {
         let g = sink.clone();
         let uv_2 = task(move |_| build_sphere(g, 2)).start(sched);
         let g = sink.clone();

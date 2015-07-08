@@ -355,7 +355,7 @@ pub enum Message {
 
 impl WriteEntity<VertexBuffer, Vertex> for Graphics {
     fn write(&mut self, entity: VertexBuffer, data: Vertex) {
-        self.channel.send(Message::Vertex(
+        self.send(Message::Vertex(
             Operation::Upsert(entity, VertexComponent::Vertex(data))
         ))
     }
@@ -363,7 +363,7 @@ impl WriteEntity<VertexBuffer, Vertex> for Graphics {
 
 impl WriteEntity<VertexBuffer, Vec<u32>> for Graphics {
     fn write(&mut self, entity: VertexBuffer, data: Vec<u32>) {
-        self.channel.send(Message::Vertex(
+        self.send(Message::Vertex(
             Operation::Upsert(entity, VertexComponent::Index(data))
         ))
     }
@@ -373,13 +373,13 @@ impl WriteEntity<VertexBuffer, VertexBufferData> for Graphics {
     fn write(&mut self, entity: VertexBuffer, data: VertexBufferData) {
         let VertexBufferData{vertex, index} = data;
         if index.is_none() {
-            self.channel.send(Message::Vertex(Operation::Delete(entity)));
+            self.send(Message::Vertex(Operation::Delete(entity)));
         }
-        self.channel.send(Message::Vertex(
+        self.send(Message::Vertex(
             Operation::Upsert(entity, VertexComponent::Vertex(vertex))
         ));
         if let Some(index) = index {
-            self.channel.send(Message::Vertex(
+            self.send(Message::Vertex(
                 Operation::Upsert(entity, VertexComponent::Index(index))
             ));
         }
@@ -388,7 +388,7 @@ impl WriteEntity<VertexBuffer, VertexBufferData> for Graphics {
 
 impl WriteEntity<Material, MaterialComponent<[f32; 4]>> for Graphics {
     fn write(&mut self, entity: Material, data: MaterialComponent<[f32; 4]>) {
-        self.channel.send(Message::MaterialFlat(
+        self.send(Message::MaterialFlat(
             Operation::Upsert(entity, data)
         ))
     }
@@ -396,7 +396,7 @@ impl WriteEntity<Material, MaterialComponent<[f32; 4]>> for Graphics {
 
 impl WriteEntity<Material, MaterialComponent<Texture>> for Graphics {
     fn write(&mut self, entity: Material, data: MaterialComponent<Texture>) {
-        self.channel.send(Message::MaterialTexture(
+        self.send(Message::MaterialTexture(
             Operation::Upsert(entity, data)
         ))
     }
@@ -404,7 +404,7 @@ impl WriteEntity<Material, MaterialComponent<Texture>> for Graphics {
 
 impl WriteEntity<Geometry, GeometryData> for Graphics {
     fn write(&mut self, entity: Geometry, data: GeometryData) {
-        self.channel.send(Message::Geometry(
+        self.send(Message::Geometry(
             Operation::Upsert(entity, data)
         ))
     }
@@ -412,7 +412,7 @@ impl WriteEntity<Geometry, GeometryData> for Graphics {
 
 impl WriteEntity<Texture, image::DynamicImage> for Graphics {
     fn write(&mut self, entity: Texture, data: image::DynamicImage) {
-        self.channel.send(Message::Texture(
+        self.send(Message::Texture(
             Operation::Upsert(entity, data)
         ))
     }
@@ -424,7 +424,7 @@ pub struct VertexBufferData {
     pub index: Option<Vec<u32>>
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Flag {
     Updated,
     Deleted
@@ -438,8 +438,8 @@ pub struct GraphicsStore {
     pub material: HashMap<Material, HashMap<MaterialKey, Texture>>,
     pub material_updated: HashMap<Material, Flag>,
 
-    pub textures: HashMap<Texture, image::DynamicImage>,
-    pub textures_updated: HashMap<Texture, Flag>,
+    pub texture: HashMap<Texture, image::DynamicImage>,
+    pub texture_updated: HashMap<Texture, Flag>,
 
     pub geometry: HashMap<Geometry, GeometryData>,
     pub geometry_updated: HashMap<Geometry, Flag>,
@@ -450,22 +450,40 @@ pub struct GraphicsStore {
 }
 
 #[derive(Clone)]
-pub struct Graphics {
-    /// a channel to send graphics data with
-    pub channel: Sender<Message>,
+pub enum Graphics {
+    Valid {
+        /// a channel to send graphics data with
+        channel: Sender<Message>,
 
-    /// Link the the future of this store
-    next: shared_future::Future<Graphics>,
+        /// Link the the future of this store
+        next: shared_future::Future<Graphics>,
 
-    /// Link to the data associated with this frame
-    data: lease::Lease<GraphicsStore>,
+        /// Link to the data associated with this frame
+        data: lease::Lease<GraphicsStore>,
+    },
+    UpdatePending
 }
+
+impl Graphics {
+    fn send(&mut self, msg: Message) {
+        match self {
+            &mut Graphics::Valid{ref mut channel, ref next, ref data} => {
+                channel.send(msg)
+            }
+            _ => ()
+        }
+    }
+}
+
 
 impl std::ops::Deref for Graphics {
     type Target = GraphicsStore;
 
     fn deref(&self) -> &GraphicsStore {
-        &self.data
+        match self {
+            &Graphics::Valid{ref channel, ref next, ref data} => data,
+            _ => panic!("Graphics is being Updated!")
+        }
     }
 }
 
@@ -473,7 +491,7 @@ impl GraphicsStore {
     fn clear_frame(&mut self) {
         self.vertex_buffer_updated.clear();
         self.material_updated.clear();
-        self.textures_updated.clear();
+        self.texture_updated.clear();
         self.geometry_updated.clear();
     }
 
@@ -522,7 +540,8 @@ impl GraphicsStore {
             });
 
         if insert {
-            self.textures.insert(texture,
+            self.texture_updated.insert(texture, Flag::Updated);
+            self.texture.insert(texture,
                 image::DynamicImage::ImageRgba8(image::ImageBuffer::from_pixel(1, 1, rgba))
             );
         }
@@ -560,13 +579,13 @@ impl GraphicsStore {
     }
 
     fn texture(&mut self, id: Texture, dat: image::DynamicImage) {
-        self.textures_updated.insert(id, Flag::Updated);
-        self.textures.insert(id, dat);
+        self.texture_updated.insert(id, Flag::Updated);
+        self.texture.insert(id, dat);
     }
 
     fn texture_delete(&mut self, id: Texture) {
-        self.textures_updated.insert(id, Flag::Deleted);
-        self.textures.delete(id);
+        self.texture_updated.insert(id, Flag::Deleted);
+        self.texture.delete(id);
     }
 }
 
@@ -615,7 +634,7 @@ fn worker(mut owner: lease::Owner<GraphicsStore>,
         let (nowner, lease) = lease::lease(data);
         let (tx, ninput) = channel();
         let (next, nset) = shared_future::Future::new();
-        set.set(Graphics{
+        set.set(Graphics::Valid{
             channel: tx,
             next: next,
             data: lease
@@ -635,8 +654,8 @@ impl Graphics {
             vertex_buffer_updated: HashMap::new(),
             material: HashMap::new(),
             material_updated: HashMap::new(),
-            textures: HashMap::new(),
-            textures_updated: HashMap::new(),
+            texture: HashMap::new(),
+            texture_updated: HashMap::new(),
             geometry: HashMap::new(),
             geometry_updated: HashMap::new(),
             colors: HashMap::new()
@@ -644,7 +663,7 @@ impl Graphics {
 
         task(|_| worker(owner, set, rx)).start(sched);
 
-        Graphics {
+        Graphics::Valid {
             channel: tx,
             next: future,
             data: lease
@@ -652,11 +671,23 @@ impl Graphics {
     }
 
     /// Fetch the next frame
-    pub fn next_frame(self) -> Option<Graphics> {
-        let Graphics{mut channel, next, data} = self;
+    pub fn next_frame(&mut self) -> bool {
+        use std::mem;
+        let mut pending = Graphics::UpdatePending;
+        mem::swap(&mut pending, self);
+        let (mut channel, next, data) = match pending {
+            Graphics::Valid{channel, next, data} => (channel, next, data),
+            Graphics::UpdatePending => panic!("Invalid state"),
+        };
         channel.flush();
         drop(data);
         drop(channel);
-        next.get().ok()
+        match next.get().ok() {
+            Some(next) => {
+                *self = next;
+                true
+            }
+            None => false
+        }
     }
 }

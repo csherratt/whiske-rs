@@ -25,9 +25,10 @@ use std::collections::{HashMap, HashSet};
 use snowstorm::channel;
 use transform::{Solved, TransformOutput};
 use graphics::{
-    GraphicsSink, VertexData, Texture,
+    Graphics, VertexComponent, Texture,
     Pos, PosTex, PosNorm, PosTexNorm, Vertex,
-    MaterialComponent, GeometryData, Geometry
+    MaterialComponent, GeometryData, Geometry,
+    VertexBuffer
 };
 use scene::{Scene, SceneOutput};
 use engine::Window;
@@ -68,19 +69,17 @@ pub struct Renderer<R: Resources, C: gfx::CommandBuffer<R>, D: gfx::Device, F: F
     device: D,
     factory: F,
 
-    graphics: graphics::GraphicsSink,
+    graphics: graphics::Graphics,
     transform_input: TransformOutput,
     render_input: channel::Receiver<Message>,
     scene_output: SceneOutput,
 
     position: Position,
 
-    vertex: HashMap<Entity, (Option<Mesh<R>>, Option<handle::Buffer<R, u32>>)>,
-    vertex_vals: HashMap<Entity, (Vertex, Vec<u32>)>,
-    materials: HashMap<Entity, Material<R>>,
-    geometry_data: HashMap<Entity, GeometryData>,
-    geometry_slice: HashMap<Entity, GeometrySlice<R>>,
-    textures: HashMap<Entity, handle::Texture<R>>,
+    vertex: HashMap<Entity, (Mesh<R>, Option<handle::Buffer<R, u32>>)>,
+    materials: HashMap<graphics::Material, Material<R>>,
+    geometry_slice: HashMap<Geometry, GeometrySlice<R>>,
+    textures: HashMap<Texture, handle::Texture<R>>,
     cameras: HashMap<Entity, Camera>,
     debug_text: HashMap<Entity, DebugText>,
 
@@ -177,8 +176,8 @@ impl<R, C, D, F> AbstractScene<R> for Renderer<R, C, D, F>
                     .filter_map(|eid| self.binding.get(eid).map(|x| (eid, x)))
                     .filter_map(|(eid, draw)| {
 
-            match (self.geometry_slice.get(&(draw.0).0),
-                   self.materials.get(&(draw.1).0),
+            match (self.geometry_slice.get(&draw.0),
+                   self.materials.get(&(draw.1)),
                    self.position.0.get(&eid)) {
                 (Some(a), Some(b), Some(c)) => {
                     Some(MaterializedEntity{
@@ -244,7 +243,7 @@ impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device,
     where F: gfx::Factory<gfx_device_gl::Resources>+Clone
 
 {
-    pub fn new(graphics: GraphicsSink,
+    pub fn new(graphics: Graphics,
                position: TransformOutput,
                scene: SceneOutput,
                ra: engine::RenderArgs<Device, F>) -> (RendererInput, Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device, F>) {
@@ -293,9 +292,7 @@ impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device,
             render_input: rx,
             position: Position(HashMap::new()),
             vertex: HashMap::new(),
-            vertex_vals: HashMap::new(),
             materials: HashMap::new(),
-            geometry_data: HashMap::new(),
             geometry_slice: HashMap::new(),
             binding: HashMap::new(),
             debug_text: HashMap::new(),
@@ -314,6 +311,29 @@ impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device,
     }
 }
 
+fn update_vertex_buffer<R, F>(factory: &mut F,
+                              graphics: &Graphics,
+                              table: &mut HashMap<Entity, (Mesh<R>, Option<handle::Buffer<R, u32>>)>,
+                              id: VertexBuffer)
+    where R: gfx::Resources,
+          F: gfx::Factory<R>
+{
+    let (vertex, index) = {
+        let v = graphics.vertex_buffer.get(&id).unwrap();
+        let vertex = match v.vertex {
+            Pos(ref data) => factory.create_mesh(&data[..]),
+            PosTex(ref data) => factory.create_mesh(&data[..]),
+            PosNorm(ref data) => factory.create_mesh(&data[..]),
+            PosTexNorm(ref data) => factory.create_mesh(&data[..])
+        };
+        let index = v.index.as_ref().map(|data|
+            factory.create_buffer_static(&data, BufferRole::Index)
+        );
+        (vertex, index)
+    };
+    table.insert(id.0, (vertex, index));
+}
+
 impl<R, C, D, F> Renderer<R, C, D, F>
     where R: Resources,
           C: gfx::CommandBuffer<R>,
@@ -321,58 +341,8 @@ impl<R, C, D, F> Renderer<R, C, D, F>
           F: gfx::Factory<R>+Clone
 
 {
-    fn add_vertex(&mut self, entity: Entity, vertex: VertexData) {
-        let dst = self.vertex.entry(entity).or_insert_with(|| (None, None));
-        match vertex {
-            VertexData::Vertex(Pos(ref data)) => {
-                dst.0 = Some(self.factory.create_mesh(&data[..]));
-            }
-            VertexData::Vertex(PosTex(ref data)) => {
-                dst.0 = Some(self.factory.create_mesh(&data[..]));
-            }
-            VertexData::Vertex(PosNorm(ref data)) => {
-                dst.0 = Some(self.factory.create_mesh(&data[..]));
-            }
-            VertexData::Vertex(PosTexNorm(ref data)) => {
-                dst.0 = Some(self.factory.create_mesh(&data[..]));
-            }
-            VertexData::Index(ref data) => {
-                dst.1 = Some(self.factory.create_buffer_static(&data, BufferRole::Index));
-            }
-        }
 
-        let dst = self.vertex_vals.entry(entity).or_insert_with(|| (Pos(vec![]), vec![]));
-        match vertex {
-            VertexData::Vertex(data) => {
-                dst.0 = data;
-            }
-            VertexData::Index(data) => {
-                dst.1 = data;
-            }
-        }
-    }
-
-    fn add_material_flat(&mut self, entity: Entity, material: MaterialComponent<[f32; 4]>) {
-        let dst = self.materials.entry(entity)
-                      .or_insert_with(|| {
-                       Material {
-                            color: [0., 0., 0., 1.],
-                            texture: None,
-                            transparency: Transparency::Opaque
-                       }});
-
-        match material {
-            MaterialComponent::Kd(x) => {
-                dst.color[0] = x[0];
-                dst.color[1] = x[1];
-                dst.color[2] = x[2];
-                dst.color[3] = x[3];
-            }
-            _ => ()
-        }
-    }
-
-    fn add_material_texture(&mut self, entity: Entity, material: MaterialComponent<Texture>) {
+    fn add_material_texture(&mut self, entity: graphics::Material) {
         let dst = self.materials.entry(entity)
                       .or_insert_with(|| {
                        Material {
@@ -381,28 +351,28 @@ impl<R, C, D, F> Renderer<R, C, D, F>
                             transparency: Transparency::Opaque
                        }});
 
-        match material {
-            MaterialComponent::Kd(x) => {
-                // TODO, this is not right, we should `resolve` the textures
-                // JIT.
-                let text = if let Some(text) = self.textures.get(&x.0) {
-                    text.clone()
-                } else {
-                    println!("Texture not found");
-                    return;
-                };
+        for (&id, &mat) in self.graphics.material.get(&entity).unwrap().iter() {
+            match id {
+                graphics::Kd(_) => {
+                    let text = if let Some(text) = self.textures.get(&mat) {
+                        text.clone()
+                    } else {
+                        println!("Texture not found");
+                        return;
+                    };
 
-                dst.texture = Some((text, Some(self.sampler.clone())));
+                    dst.texture = Some((text, Some(self.sampler.clone())));
+                }
+                _ => ()
             }
-            _ => ()
         }
     }
 
     /// load target texture into graphics memory, and refer to it by the supplied
     /// entity id
     fn add_texture(&mut self,
-                   entity: Entity,
-                   texture: image::DynamicImage) {
+                   id: Texture,
+                   texture: &image::DynamicImage) {
 
         // Flip the image
         //let texture = texture.flipv();
@@ -449,14 +419,14 @@ impl<R, C, D, F> Renderer<R, C, D, F>
             Some(gfx::tex::Kind::D2)
         ).unwrap();
 
-        self.textures.insert(entity, text);
+        self.textures.insert(id, text);
     }
 
-    fn add_geometry(&mut self, entity: Entity, geometry: GeometryData) {
-        self.geometry_data.insert(entity, geometry);
+    fn update_geometry(&mut self, id: Geometry) {
+        let geometry = self.graphics.geometry.get(&id).unwrap().clone();
 
         match self.vertex.get(&geometry.buffer.parent) {
-            Some(&(Some(ref v), None)) => {
+            Some(&(ref v, None)) => {
                 Some(GeometrySlice {
                     mesh: v.clone(),
                     slice: Slice {
@@ -467,7 +437,7 @@ impl<R, C, D, F> Renderer<R, C, D, F>
                     }
                 })
             }
-            Some(&(Some(ref v), Some(ref i))) => {
+            Some(&(ref v, Some(ref i))) => {
                 Some(GeometrySlice {
                     mesh: v.clone(),
                     slice: Slice {
@@ -480,7 +450,7 @@ impl<R, C, D, F> Renderer<R, C, D, F>
             }
             _ => None
         }.map(|slice| {
-            self.geometry_slice.insert(entity, slice);
+            self.geometry_slice.insert(id, slice);
         });
     }
 
@@ -523,52 +493,6 @@ impl<R, C, D, F> Renderer<R, C, D, F>
         }
     }
 
-    fn sync_graphics(&mut self) -> Option<Signal> {
-        use graphics::Message;
-        while let Some(msg) = self.graphics.0.try_recv() {
-            match msg {
-                Message::Vertex(Operation::Upsert(eid, vd)) => {
-                    self.add_vertex(eid, vd);
-                }
-                Message::Vertex(Operation::Delete(eid)) => {
-                    self.vertex.remove(&eid);
-                }
-                Message::MaterialFlat(Operation::Upsert(eid, mat)) => {
-                    self.add_material_flat(eid, mat);
-                }
-                Message::MaterialTexture(Operation::Upsert(eid, mat)) => {
-                    self.add_material_texture(eid, mat);
-                }
-                Message::MaterialTexture(Operation::Delete(eid)) => {
-                    self.materials.remove(&eid);
-                }
-                Message::MaterialFlat(Operation::Delete(eid)) => {
-                    self.materials.remove(&eid);
-                }
-                Message::Geometry(Operation::Upsert(eid, geo)) => {
-                    self.add_geometry(eid, geo);
-                }
-                Message::Geometry(Operation::Delete(eid)) => {
-                    self.geometry_data.remove(&eid);
-                    self.geometry_slice.remove(&eid);
-                }
-                Message::Texture(Operation::Upsert(eid, text)) => {
-                    self.add_texture(eid, text);
-                }
-                Message::Texture(Operation::Delete(eid)) => {
-                    self.textures.remove(&eid);
-                }
-
-            }
-        }
-
-        if self.graphics.0.closed() {
-            None
-        } else {
-            Some(self.graphics.0.signal())
-        }
-    }
-
     fn sync_position(&mut self) -> Option<Signal> {
         for msg in self.transform_input.copy_iter(false) {
             msg.write(&mut self.position.0);
@@ -586,8 +510,45 @@ impl<R, C, D, F> Renderer<R, C, D, F>
     }
 
     fn sync(&mut self) {
+        self.graphics.next_frame();
+
+        let graphics = self.graphics.clone();
+        for (&id, &msg) in graphics.vertex_buffer_updated.iter() {
+            match msg {
+                graphics::Flag::Updated => {
+                    update_vertex_buffer(&mut self.factory, &graphics, &mut self.vertex, id);
+                },
+                graphics::Flag::Deleted => {}
+            }
+        }
+        for (&id, &msg) in graphics.texture_updated.iter() {
+            match msg {
+                graphics::Flag::Updated => {
+                    self.add_texture(id, graphics.texture.get(&id).unwrap());
+                },
+                graphics::Flag::Deleted => {}
+            }            
+        }
+        for (&id, &msg) in graphics.material_updated.iter() {
+            match msg {
+                graphics::Flag::Updated => {
+                    self.add_material_texture(id);
+                },
+                graphics::Flag::Deleted => {}
+            }
+        }
+        for (&id, &msg) in graphics.geometry_updated.iter() {
+            match msg {
+                graphics::Flag::Updated => {
+                    self.update_geometry(id);
+                },
+                graphics::Flag::Deleted => {}
+            }
+        }
+
+
+
         let mut select: SelectMap<fn(&mut Renderer<R, C, D, F>) -> Option<Signal>> = SelectMap::new();
-        select.add(self.graphics.0.signal(), Renderer::sync_graphics);
         select.add(self.transform_input.signal(), Renderer::sync_position);
         select.add(self.scene_output.signal(), Renderer::sync_scene);
         select.add(self.render_input.signal(), Renderer::sync_binding);
@@ -598,7 +559,6 @@ impl<R, C, D, F> Renderer<R, C, D, F>
             }
         }
 
-        self.graphics.0.next_frame();
         self.transform_input.next_frame();
         self.scene_output.next_frame();
         self.render_input.next_frame();
