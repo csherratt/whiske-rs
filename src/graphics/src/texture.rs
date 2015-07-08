@@ -3,11 +3,11 @@ use std::path::PathBuf;
 use entity::{Entity, EntityBinding};
 use fibe::{Schedule, task};
 use image;
-use GraphicsSource;
+use Graphics;
 use future_pulse::Future;
 
 /// A handle for a texture
-#[derive(Copy, Clone, Hash, Debug)]
+#[derive(Copy, Clone, Hash, Debug, PartialEq, Eq)]
 pub struct Texture(pub Entity);
 
 impl Texture {
@@ -17,7 +17,7 @@ impl Texture {
     }
 
     /// Load a image from Path
-    pub fn load(sched: &mut Schedule, path: PathBuf, mut src: GraphicsSource)
+    pub fn load(sched: &mut Schedule, path: PathBuf, mut src: Graphics)
         -> Future<Result<Texture, image::ImageError>> {
        
         task(move |_| {

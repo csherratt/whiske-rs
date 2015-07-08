@@ -16,7 +16,7 @@ use entity::*;
 //use Texture;
 
 /// A Material entity
-#[derive(Copy, Clone, Hash, Debug)]
+#[derive(Copy, Clone, Hash, Debug, PartialEq, Eq)]
 pub struct Material(pub Entity);
 
 impl Material {
@@ -36,11 +36,38 @@ impl Material {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum MaterialComponent<T> {
     Ka(T),
     Kd(T),
     Ks(T),
 }
+
+impl<T> MaterialComponent<T> {
+    pub fn split(self) -> (MaterialKey, T) {
+        match self {
+            Ka(t) => (Ka(()), t),
+            Kd(t) => (Kd(()), t),
+            Ks(t) => (Ks(()), t),
+        }
+    }
+
+    pub fn value(self) -> T {
+        match self {
+            Ka(a) | Kd(a) | Ks(a) => a
+        }
+    }
+
+    pub fn key(self) -> MaterialKey {
+        match self {
+            Ka(_) => Ka(()),
+            Kd(_) => Kd(()),
+            Ks(_) => Ks(()),
+        }
+    }
+}
+
+/// A MaterialKey can
+pub type MaterialKey = MaterialComponent<()>;
 
 pub use self::MaterialComponent::*;

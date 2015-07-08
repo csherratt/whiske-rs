@@ -7,10 +7,18 @@ extern crate future_pulse;
 extern crate image;
 #[macro_use]
 extern crate gfx;
+extern crate shared_future;
+extern crate lease;
 
 use std::iter::FromIterator;
+use std::collections::HashMap;
+
+use fibe::*;
+
 use entity::*;
 use snowstorm::mpsc::*;
+
+
 pub use material::*;
 pub use texture::Texture;
 
@@ -18,12 +26,12 @@ pub mod material;
 pub mod texture;
 
 /// A Geometry entity
-#[derive(Copy, Clone, Hash, Debug)]
+#[derive(Copy, Clone, Hash, Debug, PartialEq, Eq)]
 pub struct Geometry(pub Entity);
 
 
 /// A handle for a vertex buffer
-#[derive(Copy, Clone, Hash, Debug)]
+#[derive(Copy, Clone, Hash, Debug, PartialEq, Eq)]
 pub struct VertexBuffer(pub Entity, Length);
 
 impl Geometry {
@@ -43,7 +51,7 @@ impl Geometry {
     }
 }
 
-#[derive(Copy, Clone, Hash, Debug)]
+#[derive(Copy, Clone, Hash, Debug, PartialEq, Eq)]
 pub enum Length {
     Unsized,
     Length(u32)
@@ -330,79 +338,325 @@ impl VertexSubBuffer {
 }
 
 #[derive(Clone, Debug)]
-pub enum VertexData {
+pub enum VertexComponent {
     Vertex(Vertex),
     Index(Vec<u32>)
 }
 
 #[derive(Clone)]
 pub enum Message {
-    Vertex(Operation<Entity, VertexData>),
-    MaterialFlat(Operation<Entity, MaterialComponent<[f32; 4]>>),
-    MaterialTexture(Operation<Entity, MaterialComponent<Texture>>),
-    Geometry(Operation<Entity, GeometryData>),
-    Texture(Operation<Entity, image::DynamicImage>)
+    Vertex(Operation<VertexBuffer, VertexComponent>),
+    MaterialFlat(Operation<Material, MaterialComponent<[f32; 4]>>),
+    MaterialTexture(Operation<Material, MaterialComponent<Texture>>),
+    Geometry(Operation<Geometry, GeometryData>),
+    Texture(Operation<Texture, image::DynamicImage>)
+}
+
+
+impl WriteEntity<VertexBuffer, Vertex> for Graphics {
+    fn write(&mut self, entity: VertexBuffer, data: Vertex) {
+        self.channel.send(Message::Vertex(
+            Operation::Upsert(entity, VertexComponent::Vertex(data))
+        ))
+    }
+}
+
+impl WriteEntity<VertexBuffer, Vec<u32>> for Graphics {
+    fn write(&mut self, entity: VertexBuffer, data: Vec<u32>) {
+        self.channel.send(Message::Vertex(
+            Operation::Upsert(entity, VertexComponent::Index(data))
+        ))
+    }
+}
+
+impl WriteEntity<VertexBuffer, VertexBufferData> for Graphics {
+    fn write(&mut self, entity: VertexBuffer, data: VertexBufferData) {
+        let VertexBufferData{vertex, index} = data;
+        if index.is_none() {
+            self.channel.send(Message::Vertex(Operation::Delete(entity)));
+        }
+        self.channel.send(Message::Vertex(
+            Operation::Upsert(entity, VertexComponent::Vertex(vertex))
+        ));
+        if let Some(index) = index {
+            self.channel.send(Message::Vertex(
+                Operation::Upsert(entity, VertexComponent::Index(index))
+            ));
+        }
+    }
+}
+
+impl WriteEntity<Material, MaterialComponent<[f32; 4]>> for Graphics {
+    fn write(&mut self, entity: Material, data: MaterialComponent<[f32; 4]>) {
+        self.channel.send(Message::MaterialFlat(
+            Operation::Upsert(entity, data)
+        ))
+    }
+}
+
+impl WriteEntity<Material, MaterialComponent<Texture>> for Graphics {
+    fn write(&mut self, entity: Material, data: MaterialComponent<Texture>) {
+        self.channel.send(Message::MaterialTexture(
+            Operation::Upsert(entity, data)
+        ))
+    }
+}
+
+impl WriteEntity<Geometry, GeometryData> for Graphics {
+    fn write(&mut self, entity: Geometry, data: GeometryData) {
+        self.channel.send(Message::Geometry(
+            Operation::Upsert(entity, data)
+        ))
+    }
+}
+
+impl WriteEntity<Texture, image::DynamicImage> for Graphics {
+    fn write(&mut self, entity: Texture, data: image::DynamicImage) {
+        self.channel.send(Message::Texture(
+            Operation::Upsert(entity, data)
+        ))
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct VertexBufferData {
+    pub vertex: Vertex,
+    pub index: Option<Vec<u32>>
 }
 
 #[derive(Clone)]
-pub struct GraphicsSource(pub Sender<Message>);
-pub struct GraphicsSink(pub Receiver<Message>);
+pub enum Flag {
+    Updated,
+    Deleted
+}
 
-impl GraphicsSource {
-    pub fn new() -> (GraphicsSink, GraphicsSource) {
-        let (vx_tx, vx_rx) = channel();
-        (GraphicsSink(vx_rx), GraphicsSource(vx_tx))
-    }
+#[derive(Clone)]
+pub struct GraphicsStore {
+    pub vertex_buffer: HashMap<VertexBuffer, VertexBufferData>,
+    pub vertex_buffer_updated: HashMap<VertexBuffer, Flag>,
 
-    pub fn next_frame(&mut self) {
-        self.0.next_frame();
+    pub material: HashMap<Material, HashMap<MaterialKey, Texture>>,
+    pub material_updated: HashMap<Material, Flag>,
+
+    pub textures: HashMap<Texture, image::DynamicImage>,
+    pub textures_updated: HashMap<Texture, Flag>,
+
+    pub geometry: HashMap<Geometry, GeometryData>,
+    pub geometry_updated: HashMap<Geometry, Flag>,
+
+    /// This is used the emulate `flat` colors the color is written
+    /// into a texture for eas of use by the backend
+    pub colors: HashMap<[u8; 4], Texture>
+}
+
+#[derive(Clone)]
+pub struct Graphics {
+    /// a channel to send graphics data with
+    pub channel: Sender<Message>,
+
+    /// Link the the future of this store
+    next: shared_future::Future<Graphics>,
+
+    /// Link to the data associated with this frame
+    data: lease::Lease<GraphicsStore>,
+}
+
+impl std::ops::Deref for Graphics {
+    type Target = GraphicsStore;
+
+    fn deref(&self) -> &GraphicsStore {
+        &self.data
     }
 }
 
-impl WriteEntity<VertexBuffer, Vertex> for GraphicsSource {
-    fn write(&mut self, entity: VertexBuffer, data: Vertex) {
-        self.0.send(Message::Vertex(
-            Operation::Upsert(entity.0, VertexData::Vertex(data))
-        ))
+impl GraphicsStore {
+    fn clear_frame(&mut self) {
+        self.vertex_buffer_updated.clear();
+        self.material_updated.clear();
+        self.textures_updated.clear();
+        self.geometry_updated.clear();
+    }
+
+    fn upsert_vertex(&mut self, id: VertexBuffer, dat: VertexComponent) {
+        self.vertex_buffer_updated.insert(id, Flag::Updated);
+        let dst = self.vertex_buffer
+            .entry(id)
+            .or_insert_with(|| VertexBufferData{
+                vertex: Vertex::Pos(vec![]),
+                index: None
+            });
+
+        match dat {
+            VertexComponent::Vertex(data) => dst.vertex = data,
+            VertexComponent::Index(data) => dst.index = Some(data),
+        }
+    }
+
+    fn delete_vertex(&mut self, v: VertexBuffer) {
+        self.vertex_buffer_updated.insert(v, Flag::Deleted);
+        self.vertex_buffer.delete(v);
+    }
+
+    fn material_flat(&mut self, id: Material, mat: MaterialComponent<[f32; 4]>) {
+        fn v_to_u8(v: f32) -> u8 {
+            if v > 1. {
+                255
+            } else if v < 0. {
+                0
+            } else {
+                (v * 255.) as u8
+            }
+        }
+        let (key, value) = mat.split();
+        let value_u8 = [v_to_u8(value[0]),
+                        v_to_u8(value[1]),
+                        v_to_u8(value[2]),
+                        v_to_u8(value[3])];
+        let rgba = image::Rgba(value_u8);
+        let mut insert = false;
+        let texture = *self.colors
+            .entry(value_u8)
+            .or_insert_with(|| {
+                insert = true;
+                Texture::new()
+            });
+
+        if insert {
+            self.textures.insert(texture,
+                image::DynamicImage::ImageRgba8(image::ImageBuffer::from_pixel(1, 1, rgba))
+            );
+        }
+
+
+        self.material_updated.insert(id, Flag::Updated);
+        self.material
+            .entry(id)
+            .or_insert_with(|| HashMap::new())
+            .insert(key, texture);
+    }
+
+    fn material_texture(&mut self, id: Material, mat: MaterialComponent<Texture>) {
+        let (key, value) = mat.split();
+        self.material_updated.insert(id, Flag::Updated);
+        self.material
+            .entry(id)
+            .or_insert_with(|| HashMap::new())
+            .insert(key, value);
+    }
+
+    fn material_delete(&mut self, id: Material) {
+        self.material_updated.insert(id, Flag::Deleted);
+        self.material.delete(id);
+    }
+
+    fn geometry(&mut self, id: Geometry, dat: GeometryData) {
+        self.geometry_updated.insert(id, Flag::Updated);
+        self.geometry.insert(id, dat);
+    }
+
+    fn geometry_delete(&mut self, id: Geometry) {
+        self.geometry_updated.insert(id, Flag::Deleted);
+        self.geometry.delete(id);
+    }
+
+    fn texture(&mut self, id: Texture, dat: image::DynamicImage) {
+        self.textures_updated.insert(id, Flag::Updated);
+        self.textures.insert(id, dat);
+    }
+
+    fn texture_delete(&mut self, id: Texture) {
+        self.textures_updated.insert(id, Flag::Deleted);
+        self.textures.delete(id);
     }
 }
 
-impl WriteEntity<VertexBuffer, Vec<u32>> for GraphicsSource {
-    fn write(&mut self, entity: VertexBuffer, data: Vec<u32>) {
-        self.0.send(Message::Vertex(
-            Operation::Upsert(entity.0, VertexData::Index(data))
-        ))
+fn worker(mut owner: lease::Owner<GraphicsStore>,
+          mut set: shared_future::Set<Graphics>,
+          mut input: Receiver<Message>) {
+
+    loop {
+        let mut data = owner.get();
+        data.clear_frame();
+
+        for msg in input.iter() {
+            match msg {
+                Message::Vertex(Operation::Upsert(eid, vd)) => {
+                    data.upsert_vertex(eid, vd);
+                }
+                Message::Vertex(Operation::Delete(eid)) => {
+                    data.delete_vertex(eid);
+                }
+                Message::MaterialFlat(Operation::Upsert(eid, mat)) => {
+                    data.material_flat(eid, mat);
+                }
+                Message::MaterialTexture(Operation::Upsert(eid, mat)) => {
+                    data.material_texture(eid, mat);
+                }
+                Message::MaterialTexture(Operation::Delete(eid)) |
+                Message::MaterialFlat(Operation::Delete(eid)) => {
+                    data.material_delete(eid);
+                }
+                Message::Geometry(Operation::Upsert(eid, geo)) => {
+                    data.geometry(eid, geo);
+                }
+                Message::Geometry(Operation::Delete(eid)) => {
+                    data.geometry_delete(eid);
+                }
+                Message::Texture(Operation::Upsert(eid, text)) => {
+                    data.texture(eid, text);
+                }
+                Message::Texture(Operation::Delete(eid)) => {
+                    data.texture_delete(eid);
+                }
+
+            }
+        }
+
+        let (nowner, lease) = lease::lease(data);
+        let (tx, ninput) = channel();
+        let (next, nset) = shared_future::Future::new();
+        set.set(Graphics{
+            channel: tx,
+            next: next,
+            data: lease
+        });
+        owner = nowner;
+        set = nset;
+        input = ninput;
     }
 }
 
-impl WriteEntity<Material, MaterialComponent<[f32; 4]>> for GraphicsSource {
-    fn write(&mut self, entity: Material, data: MaterialComponent<[f32; 4]>) {
-        self.0.send(Message::MaterialFlat(
-            Operation::Upsert(entity.0, data)
-        ))
-    }
-}
+impl Graphics {
+    pub fn new(sched: &mut fibe::Schedule) -> Graphics {
+        let (tx, rx) = channel();
+        let (future, set) = shared_future::Future::new();
+        let (owner, lease) = lease::lease(GraphicsStore{
+            vertex_buffer: HashMap::new(),
+            vertex_buffer_updated: HashMap::new(),
+            material: HashMap::new(),
+            material_updated: HashMap::new(),
+            textures: HashMap::new(),
+            textures_updated: HashMap::new(),
+            geometry: HashMap::new(),
+            geometry_updated: HashMap::new(),
+            colors: HashMap::new()
+        });
 
-impl WriteEntity<Material, MaterialComponent<Texture>> for GraphicsSource {
-    fn write(&mut self, entity: Material, data: MaterialComponent<Texture>) {
-        self.0.send(Message::MaterialTexture(
-            Operation::Upsert(entity.0, data)
-        ))
-    }
-}
+        task(|_| worker(owner, set, rx)).start(sched);
 
-impl WriteEntity<Geometry, GeometryData> for GraphicsSource {
-    fn write(&mut self, entity: Geometry, data: GeometryData) {
-        self.0.send(Message::Geometry(
-            Operation::Upsert(entity.0, data)
-        ))
+        Graphics {
+            channel: tx,
+            next: future,
+            data: lease
+        }
     }
-}
 
-impl WriteEntity<Texture, image::DynamicImage> for GraphicsSource {
-    fn write(&mut self, entity: Texture, data: image::DynamicImage) {
-        self.0.send(Message::Texture(
-            Operation::Upsert(entity.0, data)
-        ))
+    /// Fetch the next frame
+    pub fn next_frame(self) -> Option<Graphics> {
+        let Graphics{mut channel, next, data} = self;
+        channel.flush();
+        drop(data);
+        drop(channel);
+        next.get().ok()
     }
 }
