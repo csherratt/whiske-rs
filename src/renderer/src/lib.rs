@@ -158,7 +158,6 @@ impl<R, C, D, F> AbstractScene<R> for Renderer<R, C, D, F>
     type Status = Report;
 
 
-    #[inline(never)]
     fn draw<H, S>(&self,
                   phase: &mut H,
                   camera: &MaterializedCamera,
@@ -314,7 +313,7 @@ impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device,
 fn update_vertex_buffer<R, F>(factory: &mut F,
                               graphics: &Graphics,
                               table: &mut HashMap<Entity, (Mesh<R>, Option<handle::Buffer<R, u32>>)>,
-                              id: VertexBuffer)
+                              id: Entity)
     where R: gfx::Resources,
           F: gfx::Factory<R>
 {
@@ -331,7 +330,7 @@ fn update_vertex_buffer<R, F>(factory: &mut F,
         );
         (vertex, index)
     };
-    table.insert(id.0, (vertex, index));
+    table.insert(id, (vertex, index));
 }
 
 impl<R, C, D, F> Renderer<R, C, D, F>

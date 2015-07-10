@@ -432,8 +432,8 @@ pub enum Flag {
 
 #[derive(Clone)]
 pub struct GraphicsStore {
-    pub vertex_buffer: HashMap<VertexBuffer, VertexBufferData>,
-    pub vertex_buffer_updated: HashMap<VertexBuffer, Flag>,
+    pub vertex_buffer: HashMap<Entity, VertexBufferData>,
+    pub vertex_buffer_updated: HashMap<Entity, Flag>,
 
     pub material: HashMap<Material, HashMap<MaterialKey, Texture>>,
     pub material_updated: HashMap<Material, Flag>,
@@ -496,9 +496,9 @@ impl GraphicsStore {
     }
 
     fn upsert_vertex(&mut self, id: VertexBuffer, dat: VertexComponent) {
-        self.vertex_buffer_updated.insert(id, Flag::Updated);
+        self.vertex_buffer_updated.insert(id.0, Flag::Updated);
         let dst = self.vertex_buffer
-            .entry(id)
+            .entry(id.0)
             .or_insert_with(|| VertexBufferData{
                 vertex: Vertex::Pos(vec![]),
                 index: None
@@ -511,8 +511,8 @@ impl GraphicsStore {
     }
 
     fn delete_vertex(&mut self, v: VertexBuffer) {
-        self.vertex_buffer_updated.insert(v, Flag::Deleted);
-        self.vertex_buffer.delete(v);
+        self.vertex_buffer_updated.insert(v.0, Flag::Deleted);
+        self.vertex_buffer.delete(v.0);
     }
 
     fn material_flat(&mut self, id: Material, mat: MaterialComponent<[f32; 4]>) {
