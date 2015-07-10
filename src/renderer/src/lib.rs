@@ -26,10 +26,8 @@ use std::collections::{HashMap, HashSet};
 use snowstorm::channel;
 use transform::{Solved, TransformOutput};
 use graphics::{
-    Graphics, VertexComponent, Texture,
-    Pos, PosTex, PosNorm, PosTexNorm, Vertex,
-    MaterialComponent, GeometryData, Geometry,
-    VertexBuffer
+    Graphics, Texture, Geometry,
+    Pos, PosTex, PosNorm, PosTexNorm,
 };
 use scene::{Scene, SceneOutput};
 use engine::Window;
@@ -46,12 +44,7 @@ use gfx_scene::{AbstractScene, Report, Error, Context, Frustum};
 use gfx_pipeline::{Material, Transparency, forward, Pipeline};
 use gfx::device::Resources;
 use image::GenericImage;
-
-use cgmath::{
-    Bound, Relation, Transform, BaseFloat, AffineMatrix3,
-    Decomposed, Vector3, Quaternion, Matrix4, Matrix,
-    Aabb3
-};
+use cgmath::{Transform, AffineMatrix3, Matrix4, Matrix, Aabb3};
 
 struct GeometrySlice<R: Resources> {
     mesh: Mesh<R>,

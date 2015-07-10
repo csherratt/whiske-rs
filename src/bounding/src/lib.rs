@@ -83,7 +83,6 @@ impl BoundingStore {
     fn update(&mut self, g: &graphics::Graphics) {
         let updated = self.create_update_list(g);
         for geo in updated.iter() {
-            println!("geo {:?}", geo);
             let aabb = if let Some(gdat) = g.geometry.get(&geo) {
                 if let Some(vb) = g.vertex_buffer.get(&gdat.buffer.parent) {
                     self.vb_to_geo
@@ -101,7 +100,6 @@ impl BoundingStore {
             };
 
             if let Some(aabb) = aabb {
-                println!("calculated aabb {:?} {:?}", geo, aabb);
                 self.aabb.insert(*geo, aabb);
             } else {
                 self.aabb.remove(geo);

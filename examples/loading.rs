@@ -67,7 +67,6 @@ fn main() {
     let (sinput, soutput) = scene::scene(engine.sched(), poutput.clone());
     let (tinput, toutput) = transform::transform(engine.sched(), poutput.clone());
     let graphics = graphics::Graphics::new(engine.sched());
-
     let bound = bounding::Bounding::new(engine.sched(), graphics.clone());
 
     let (read, set) = Future::new();
@@ -95,11 +94,13 @@ fn main() {
     let obj = obj_loader::load(engine.sched(), PathBuf::from(map), sink.graphics.clone());
     println!("Waiting for load");
     for (_, (g, m)) in obj.unwrap().get() {
+        let mut comp = Decomposed::identity();
+        comp.scale = 0.001;
         if let Some(m) = m {
             Entity::new()
                    .bind(DrawBinding(g, m))
                    .bind(scene)
-                   .bind(Delta(Decomposed::identity()))
+                   .bind(Delta(comp))
                    .write(&mut sink);
         }
     }
