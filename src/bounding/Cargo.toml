@@ -1,0 +1,31 @@
+[package]
+name = "whiske-rs-bounding"
+version = "0.1.0"
+authors = ["Slide-rs Developers"]
+
+[lib]
+name = "bounding"
+
+[dependencies]
+cgmath="*"
+
+[dependencies.fibe]
+git = "https://github.com/slide-rs/fibe-rs.git"
+
+[dependencies.snowstorm]
+git = "https://github.com/csherratt/snowstorm.git"
+
+[dependencies.future_pulse]
+git = "https://github.com/slide-rs/future_pulse.git"
+
+[dependencies.lease]
+git = "https://github.com/csherratt/lease.git"
+
+[dependencies.entity]
+git = "https://github.com/csherratt/entity.git"
+
+[dependencies.whiske-rs-graphics]
+path = "../graphics"
+
+[dependencies.shared_future]
+git = "https://github.com/csherratt/shared_future.git"

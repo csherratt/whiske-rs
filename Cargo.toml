@@ -52,6 +52,10 @@ version = "*"
 path = "src/no_clip"
 version = "*"
 
+[dependencies.whiske-rs-bounding]
+path = "src/bounding"
+version = "*"
+
 [dev-dependencies]
 time="*"
 image="*"
