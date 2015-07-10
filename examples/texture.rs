@@ -10,6 +10,7 @@ extern crate future_pulse;
 extern crate std_graphics;
 extern crate cgmath;
 extern crate image;
+extern crate bounding;
 
 use std::path::PathBuf;
 
@@ -60,9 +61,11 @@ fn main() {
     let (tinput, toutput) = transform::transform(engine.sched(), poutput.clone());
     let graphics = graphics::Graphics::new(engine.sched());
 
+    let bound = bounding::Bounding::new(engine.sched(), graphics.clone());
+
     let (read, set) = Future::new();
     engine.start_render(|_, ra|{
-        let (input, mut renderer) = renderer::Renderer::new(graphics.clone(), toutput, soutput, ra);
+        let (input, mut renderer) = renderer::Renderer::new(graphics.clone(), toutput, soutput, bound, ra);
         set.set(input);
         Box::new(move |sched, stream| {
             renderer.draw(sched, stream);

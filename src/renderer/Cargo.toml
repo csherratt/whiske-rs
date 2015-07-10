@@ -32,6 +32,9 @@ path = "../graphics"
 [dependencies.whiske-rs-scene]
 path = "../scene"
 
+[dependencies.whiske-rs-bounding]
+path = "../bounding"
+
 [dependencies.snowstorm]
 git = "https://github.com/csherratt/snowstorm.git"
 

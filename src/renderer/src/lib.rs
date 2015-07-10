@@ -4,6 +4,7 @@ extern crate graphics;
 extern crate scene;
 extern crate snowstorm;
 extern crate fibe;
+extern crate bounding;
 
 #[macro_use]
 extern crate gfx;
@@ -48,21 +49,13 @@ use image::GenericImage;
 
 use cgmath::{
     Bound, Relation, Transform, BaseFloat, AffineMatrix3,
-    Decomposed, Vector3, Quaternion, Matrix4, Matrix
+    Decomposed, Vector3, Quaternion, Matrix4, Matrix,
+    Aabb3
 };
 
 struct GeometrySlice<R: Resources> {
     mesh: Mesh<R>,
     slice: Slice<R>
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct NullBound;
-
-impl<S: BaseFloat> Bound<S> for NullBound {
-    fn relate_plane(&self, _p: &cgmath::Plane<S>) -> Relation {
-        Relation::In
-    }
 }
 
 pub struct Renderer<R: Resources, C: gfx::CommandBuffer<R>, D: gfx::Device, F: Factory<R>> {
@@ -75,6 +68,8 @@ pub struct Renderer<R: Resources, C: gfx::CommandBuffer<R>, D: gfx::Device, F: F
     scene_output: SceneOutput,
 
     position: Position,
+
+    bounding: bounding::Bounding,
 
     vertex: HashMap<Entity, (Mesh<R>, Option<handle::Buffer<R, u32>>)>,
     materials: HashMap<graphics::Material, Material<R>>,
@@ -124,6 +119,7 @@ impl gfx_scene::Camera<f32> for MaterializedCamera {
 }
 
 pub struct MaterializedEntity<R: gfx::Resources, M> {
+    aabb: Aabb3<f32>,
     transform: AffineMatrix3<f32>,
     mesh: gfx::Mesh<R>,
     fragments: [gfx_scene::Fragment<R, M>; 1]
@@ -139,9 +135,9 @@ impl<R: gfx::Resources, M> gfx_scene::Node for MaterializedEntity<R, M> {
 }
 
 impl<R: gfx::Resources, M> gfx_scene::Entity<R, M> for MaterializedEntity<R, M> {
-    type Bound = NullBound;
+    type Bound = Aabb3<f32>;
 
-    fn get_bound(&self) -> NullBound { NullBound }
+    fn get_bound(&self) -> Aabb3<f32> { self.aabb }
     fn get_mesh(&self) -> &gfx::Mesh<R> { &self.mesh }
     fn get_fragments(&self) -> &[gfx_scene::Fragment<R, M>] { &self.fragments[..] }
 }
@@ -179,7 +175,10 @@ impl<R, C, D, F> AbstractScene<R> for Renderer<R, C, D, F>
                    self.materials.get(&(draw.1)),
                    self.position.0.get(&eid)) {
                 (Some(a), Some(b), Some(c)) => {
+                    let aabb = self.bounding.scaled_aabb(&draw.0, c.0.into()).unwrap();
+
                     Some(MaterializedEntity{
+                        aabb: aabb,
                         transform: AffineMatrix3{mat: c.0.into()},
                         mesh: a.mesh.clone(),
                         fragments: [gfx_scene::Fragment{
@@ -245,6 +244,7 @@ impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device,
     pub fn new(graphics: Graphics,
                position: TransformOutput,
                scene: SceneOutput,
+               bounding: bounding::Bounding,
                ra: engine::RenderArgs<Device, F>) -> (RendererInput, Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device, F>) {
 
         use gfx::tex::WrapMode::Tile;
@@ -252,7 +252,7 @@ impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device,
         let (device, mut factory, vr) = (ra.device, ra.factory, ra.vr);
 
         let mut pipeline = forward::Pipeline::new(&mut factory).unwrap();
-        pipeline.background = Some([1.0; 4]);
+        pipeline.background = Some([0., 0., 0., 1.]);
         pipeline.phase.technique.lights = vec![
             gfx_pipeline::Light{
                 active: true,
@@ -299,6 +299,7 @@ impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device,
             scenes: HashMap::new(),
             scene_output: scene,
             scene: Scene::new(),
+            bounding: bounding,
             primary: None,
             cameras: HashMap::new(),
             textures: HashMap::new(),
@@ -510,6 +511,7 @@ impl<R, C, D, F> Renderer<R, C, D, F>
 
     fn sync(&mut self) {
         self.graphics.next_frame();
+        self.bounding.next_frame();
 
         let graphics = self.graphics.clone();
         for (&id, &msg) in graphics.vertex_buffer_updated.iter() {

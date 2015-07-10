@@ -8,7 +8,7 @@ extern crate fibe;
 extern crate shared_future;
 
 use std::collections::{HashMap, HashSet};
-use cgmath::{Aabb, Aabb3, Point3};
+use cgmath::{Aabb, Aabb3, Point3, Vector4, Matrix, Matrix4};
 use entity::Entity;
 use graphics::{Graphics, Geometry, GeometryData, VertexBufferData};
 use fibe::*;
@@ -83,6 +83,7 @@ impl BoundingStore {
     fn update(&mut self, g: &graphics::Graphics) {
         let updated = self.create_update_list(g);
         for geo in updated.iter() {
+            println!("geo {:?}", geo);
             let aabb = if let Some(gdat) = g.geometry.get(&geo) {
                 if let Some(vb) = g.vertex_buffer.get(&gdat.buffer.parent) {
                     self.vb_to_geo
@@ -100,6 +101,7 @@ impl BoundingStore {
             };
 
             if let Some(aabb) = aabb {
+                println!("calculated aabb {:?} {:?}", geo, aabb);
                 self.aabb.insert(*geo, aabb);
             } else {
                 self.aabb.remove(geo);
@@ -146,11 +148,38 @@ impl Bounding {
         }
     }
 
-    pub fn next(&mut self) {
+    pub fn next_frame(&mut self) {
         drop(self.inner.take());
         let Bounding{inner, next} = self.next.clone().get().unwrap();
         self.inner = inner;
         self.next = next;
+    }
+
+    /// calculate a scaled aabb
+    pub fn scaled_aabb(&self, geo: &Geometry, mat: Matrix4<f32>) -> Option<Aabb3<f32>> {
+        fn to_point3(v: Vector4<f32>) -> Point3<f32> {
+            Point3::new(v.x / v.w, v.y / v.w, v.z / v.w)
+        }
+
+        self.aabb.get(geo)
+            .map(|aabb| {
+                let points = [
+                    to_point3(mat.mul_v(&Vector4::new(aabb.min.x, aabb.min.y, aabb.min.z, 1.))),
+                    to_point3(mat.mul_v(&Vector4::new(aabb.min.x, aabb.min.y, aabb.max.z, 1.))),
+                    to_point3(mat.mul_v(&Vector4::new(aabb.min.x, aabb.max.y, aabb.min.z, 1.))),
+                    to_point3(mat.mul_v(&Vector4::new(aabb.min.x, aabb.max.y, aabb.max.z, 1.))),
+                    to_point3(mat.mul_v(&Vector4::new(aabb.max.x, aabb.min.y, aabb.min.z, 1.))),
+                    to_point3(mat.mul_v(&Vector4::new(aabb.max.x, aabb.min.y, aabb.max.z, 1.))),
+                    to_point3(mat.mul_v(&Vector4::new(aabb.max.x, aabb.max.y, aabb.min.z, 1.))),
+                    to_point3(mat.mul_v(&Vector4::new(aabb.max.x, aabb.max.y, aabb.max.z, 1.))),
+                ];
+
+                let mut aabb = Aabb3::new(points[0], points[1]);
+                for p in points[2..].iter() {
+                    aabb = aabb.grow(p);
+                }
+                aabb
+            })
     }
 }
 
