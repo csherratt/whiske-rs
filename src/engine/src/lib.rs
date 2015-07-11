@@ -4,7 +4,10 @@ extern crate gfx;
 extern crate gfx_device_gl;
 extern crate gfx_window_glfw;
 extern crate glfw;
+
+#[cfg(feature="virtual_reality")]
 extern crate vr;
+#[cfg(feature="virtual_reality")]
 extern crate gfx_vr;
 
 use fibe::*;
@@ -27,13 +30,17 @@ pub struct Engine<D: gfx::Device, F, R: gfx::Resources> {
 pub struct RenderArgs<D: gfx::Device, F> {
     pub device: D,
     pub factory: F,
+    #[cfg(feature="virtual_reality")]
     pub vr: Option<vr::IVRSystem>
 }
 
 impl Engine<gfx_device_gl::Device,
             gfx_device_gl::Factory,
             gfx_device_gl::Resources> {
+
+
     /// Create a new Engine context
+    #[cfg(feature="virtual_reality")]
     pub fn new() -> Engine<gfx_device_gl::Device,
                            gfx_device_gl::Factory,
                            gfx_device_gl::Resources> {
@@ -46,6 +53,7 @@ impl Engine<gfx_device_gl::Device,
         } else {
             glfw.create_window(800, 600, "whiske-rs", glfw::WindowMode::Windowed)
         }.unwrap();
+
         window.set_all_polling(true);
         window.make_current();
         glfw.set_swap_interval(0);
@@ -55,6 +63,40 @@ impl Engine<gfx_device_gl::Device,
 
         let ra = RenderArgs {
             vr: vr.ok(),
+            device: device,
+            factory: factory
+        };
+
+        Engine {
+            glfw: glfw,
+            events: events,
+            input: channel(),
+            pool: fibe::Frontend::new(),
+            window: stream,
+            render_args: Some(ra),
+            render: None
+        }
+    }
+
+    /// Create a new Engine context
+    #[cfg(not(feature="virtual_reality"))]
+    pub fn new() -> Engine<gfx_device_gl::Device,
+                           gfx_device_gl::Factory,
+                           gfx_device_gl::Resources> {
+
+        let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+
+        let (mut window, events) = 
+            glfw.create_window(800, 600, "whiske-rs", glfw::WindowMode::Windowed).unwrap();
+
+        window.set_all_polling(true);
+        window.make_current();
+        glfw.set_swap_interval(0);
+
+
+        let (stream, device, factory) = gfx_window_glfw::init(window);
+
+        let ra = RenderArgs {
             device: device,
             factory: factory
         };

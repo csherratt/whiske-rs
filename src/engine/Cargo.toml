@@ -14,12 +14,18 @@ git = "https://github.com/slide-rs/fibe-rs.git"
 
 [dependencies.vr]
 git = "https://github.com/csherratt/vr-rs.git"
+optional = true
 
 [dependencies.gfx_vr]
 git = "https://github.com/csherratt/gfx_vr.git"
+optional = true
 
 [dependencies]
 gfx = "*"
 gfx_device_gl = "*"
 glfw = "*"
 gfx_window_glfw = "*"
+
+[features]
+default = []
+virtual_reality = ["gfx_vr", "vr"]

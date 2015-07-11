@@ -46,12 +46,17 @@ git = "https://github.com/csherratt/snowstorm.git"
 [dependencies.fibe]
 git = "https://github.com/slide-rs/fibe-rs.git"
 
-[dependencies.vr]
-git = "https://github.com/csherratt/vr-rs.git"
-
-[dependencies.gfx_vr]
-git = "https://github.com/csherratt/gfx_vr.git"
-
 [dependencies.gfx_pipeline]
 git = "https://github.com/csherratt/gfx_pipeline.git"
 
+[dependencies.vr]
+git = "https://github.com/csherratt/vr-rs.git"
+optional = true
+
+[dependencies.gfx_vr]
+git = "https://github.com/csherratt/gfx_vr.git"
+optional = true
+
+[features]
+default = []
+virtual_reality = ["gfx_vr", "vr"]

@@ -15,6 +15,7 @@ extern crate gfx_scene;
 extern crate gfx_device_gl;
 extern crate gfx_pipeline;
 extern crate gfx_text;
+#[cfg(feature="virtual_reality")]
 extern crate gfx_vr;
 extern crate gfx_scene_aabb_debug;
 
@@ -23,6 +24,8 @@ extern crate draw_queue;
 extern crate pulse;
 extern crate cgmath;
 extern crate image;
+
+#[cfg(feature="virtual_reality")]
 extern crate vr;
 
 use std::collections::{HashMap, HashSet};
@@ -31,7 +34,6 @@ use transform::{Solved, TransformOutput};
 use graphics::{
     Graphics, Texture, Geometry,
     Pos, PosTex, PosNorm, PosTexNorm,
-    VertexPos
 };
 use scene::{Scene, SceneOutput};
 use engine::Window;
@@ -48,7 +50,10 @@ use gfx_scene::{AbstractScene, Report, Error, Context, Frustum};
 use gfx_pipeline::{Material, Transparency, forward, Pipeline};
 use gfx::device::Resources;
 use image::GenericImage;
-use cgmath::{Transform, AffineMatrix3, Matrix4, Matrix, Aabb3};
+use cgmath::{Transform, AffineMatrix3, Matrix4, Aabb3};
+
+#[cfg(feature="virtual_reality")]
+use cgmath::Matrix;
 
 struct GeometrySlice<R: Resources> {
     mesh: Mesh<R>,
@@ -87,9 +92,15 @@ pub struct Renderer<R: Resources, C: gfx::CommandBuffer<R>, D: gfx::Device, F: F
     // debug
     sampler: gfx::handle::Sampler<R>,
     text: gfx_text::Renderer<R, F>,
+    aabb_debug: gfx_scene_aabb_debug::AabbRender<R>,
+
+    #[cfg(feature="virtual_reality")]
     ivr: Option<vr::IVRSystem>,
+    #[cfg(feature="virtual_reality")]
     gvr: Option<gfx_vr::Render<R, C>>,
-    aabb_debug: gfx_scene_aabb_debug::AabbRender<R>
+
+    #[cfg(not(feature="virtual_reality"))]
+    phantom: std::marker::PhantomData<C>
 }
 
 pub struct Position(pub HashMap<Entity, Solved>);
@@ -241,6 +252,7 @@ impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device,
     where F: gfx::Factory<gfx_device_gl::Resources>+Clone
 
 {
+    #[cfg(feature="virtual_reality")]
     pub fn new(graphics: Graphics,
                position: TransformOutput,
                scene: SceneOutput,
@@ -280,7 +292,6 @@ impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device,
         );
 
         let aabb_debug = gfx_scene_aabb_debug::AabbRender::new(&mut factory).unwrap();
-
         let gfx_vr = vr.as_ref().map(|vr| gfx_vr::Render::new(&mut factory, vr));
 
         (RendererInput(tx),
@@ -309,6 +320,75 @@ impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device,
             ivr: vr,
             gvr: gfx_vr,
             aabb_debug: aabb_debug
+        })
+    }
+
+    #[cfg(not(feature="virtual_reality"))]
+    pub fn new(graphics: Graphics,
+               position: TransformOutput,
+               scene: SceneOutput,
+               bounding: bounding::Bounding,
+               ra: engine::RenderArgs<Device, F>) -> (RendererInput, Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device, F>) {
+
+        use gfx::tex::WrapMode::Tile;
+
+        let (device, mut factory) = (ra.device, ra.factory);
+
+        let mut pipeline = forward::Pipeline::new(&mut factory).unwrap();
+        pipeline.background = Some([0., 0., 0., 1.]);
+        pipeline.phase.technique.lights = vec![
+            gfx_pipeline::Light{
+                active: true,
+                kind: gfx_pipeline::light::Kind::Omni,
+                color: [1., 1., 1., 1.],
+                attenuation: gfx_pipeline::light::Attenuation::Spherical{
+                    intensity: 1.,
+                    distance: 1000., 
+                },
+                position: cgmath::Vector4::new(1., 1., 1., 1.,)
+
+            }
+        ];
+        let (tx, rx) = channel::channel();
+
+        let text = gfx_text::new(factory.clone()).unwrap();
+        let sampler = factory.create_sampler(
+            gfx::tex::SamplerInfo{
+                filtering: gfx::tex::FilterMethod::Mipmap,
+                wrap_mode: (Tile, Tile, Tile),
+                lod_bias: 0.,
+                lod_range: (0., 10.),
+                comparison: None
+            }
+        );
+
+        let aabb_debug = gfx_scene_aabb_debug::AabbRender::new(&mut factory).unwrap();
+
+        (RendererInput(tx),
+         Renderer {
+            device: device,
+            factory: factory,
+            graphics: graphics,
+            transform_input: position,
+            render_input: rx,
+            position: Position(HashMap::new()),
+            vertex: HashMap::new(),
+            materials: HashMap::new(),
+            geometry_slice: HashMap::new(),
+            binding: HashMap::new(),
+            debug_text: HashMap::new(),
+            pipeline: Some(pipeline),
+            scenes: HashMap::new(),
+            scene_output: scene,
+            scene: Scene::new(),
+            bounding: bounding,
+            primary: None,
+            cameras: HashMap::new(),
+            textures: HashMap::new(),
+            sampler: sampler,
+            text: text,
+            aabb_debug: aabb_debug,
+            phantom: std::marker::PhantomData
         })
     }
 }
@@ -567,7 +647,7 @@ impl<R, C, D, F> Renderer<R, C, D, F>
         self.render_input.next_frame();
     }
 
-    /// 
+    #[cfg(feature="virtual_reality")]
     pub fn draw(&mut self, _: &mut fibe::Schedule, window: &mut Window<D, R>) {
         hprof::start_frame();
         let _g = hprof::enter("sync system");
@@ -614,6 +694,50 @@ impl<R, C, D, F> Renderer<R, C, D, F>
             self.pipeline = Some(pipeline);
             self.ivr = ivr;
             self.gvr = gvr;
+
+            for (_, text) in self.debug_text.iter() {
+                self.text.add(
+                    &text.text, text.start, text.color
+                );
+            }
+            self.text.draw(window).unwrap();
+            let _g = hprof::enter("present");
+            window.present(&mut self.device);
+            drop(_g);
+            hprof::end_frame();
+            //hprof::profiler().print_timing();
+        }
+    }
+
+    #[cfg(not(feature="virtual_reality"))]
+    pub fn draw(&mut self, _: &mut fibe::Schedule, window: &mut Window<D, R>) {
+        hprof::start_frame();
+        let _g = hprof::enter("sync system");
+        self.sync();
+        drop(_g);
+
+        let camera = if let Some(cid) = self.primary {
+            if let Some(c) = self.cameras.get(&cid) {
+                Some((MaterializedCamera {
+                    projection: c.0.clone().into(),
+                    transform: self.position.0
+                                   .get(&cid)
+                                   .map(|x| AffineMatrix3{mat: x.0.into()})
+                                   .unwrap_or_else(|| AffineMatrix3::identity())
+                }, c.1))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        if let Some((camera, scene)) = camera {
+            self.scene = scene;
+
+            let mut pipeline = self.pipeline.take().unwrap();
+            pipeline.render(self, &camera, window).unwrap();
+            self.pipeline = Some(pipeline);
 
             for (_, text) in self.debug_text.iter() {
                 self.text.add(

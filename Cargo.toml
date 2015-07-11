@@ -62,3 +62,8 @@ image="*"
 
 [dev-dependencies.future_pulse]
 git = "https://github.com/csherratt/future_pulse.git"
+
+
+[features]
+virtual_reality = ["whiske-rs-engine/virtual_reality",
+                   "whiske-rs-renderer/virtual_reality"]
