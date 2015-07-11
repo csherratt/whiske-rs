@@ -34,6 +34,12 @@ pub struct RenderArgs<D: gfx::Device, F> {
     pub vr: Option<vr::IVRSystem>
 }
 
+fn common_glfw_config(glfw: &mut glfw::Glfw) {
+    glfw.window_hint(glfw::WindowHint::ContextVersion(3, 2));
+    glfw.window_hint(glfw::WindowHint::OpenGlForwardCompat(true));
+    glfw.window_hint(glfw::WindowHint::OpenGlProfile(glfw::OpenGlProfileHint::Core));
+}
+
 impl Engine<gfx_device_gl::Device,
             gfx_device_gl::Factory,
             gfx_device_gl::Resources> {
@@ -46,6 +52,7 @@ impl Engine<gfx_device_gl::Device,
                            gfx_device_gl::Resources> {
 
         let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+        common_glfw_config(&mut glfw);
         let vr = vr::IVRSystem::init();
 
         let (mut window, events) = if let Ok(ref vr) = vr {
@@ -85,6 +92,7 @@ impl Engine<gfx_device_gl::Device,
                            gfx_device_gl::Resources> {
 
         let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+        common_glfw_config(&mut glfw);
 
         let (mut window, events) = 
             glfw.create_window(800, 600, "whiske-rs", glfw::WindowMode::Windowed).unwrap();
