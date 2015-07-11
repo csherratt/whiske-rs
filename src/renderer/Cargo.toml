@@ -16,6 +16,7 @@ gfx_phase="0.4"
 gfx_scene="0.4"
 gfx_text="*"
 image="*"
+hprof="*"
 
 [dependencies.entity]
 git = "https://github.com/csherratt/entity.git"
@@ -49,3 +50,4 @@ git = "https://github.com/csherratt/gfx_vr.git"
 
 [dependencies.gfx_pipeline]
 git = "https://github.com/csherratt/gfx_pipeline.git"
+

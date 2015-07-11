@@ -5,6 +5,7 @@ extern crate scene;
 extern crate snowstorm;
 extern crate fibe;
 extern crate bounding;
+extern crate hprof;
 
 #[macro_use]
 extern crate gfx;
@@ -560,7 +561,10 @@ impl<R, C, D, F> Renderer<R, C, D, F>
 
     /// 
     pub fn draw(&mut self, _: &mut fibe::Schedule, window: &mut Window<D, R>) {
+        hprof::start_frame();
+        let _g = hprof::enter("sync system");
         self.sync();
+        drop(_g);
 
         let camera = if let Some(cid) = self.primary {
             if let Some(c) = self.cameras.get(&cid) {
@@ -609,7 +613,11 @@ impl<R, C, D, F> Renderer<R, C, D, F>
                 );
             }
             self.text.draw(window).unwrap();
+            let _g = hprof::enter("present");
             window.present(&mut self.device);
+            drop(_g);
+            hprof::end_frame();
+            //hprof::profiler().print_timing();
         }
     }
 }
