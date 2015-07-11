@@ -6,6 +6,7 @@ extern crate snowstorm;
 extern crate fibe;
 extern crate bounding;
 extern crate hprof;
+extern crate genmesh;
 
 #[macro_use]
 extern crate gfx;
@@ -15,6 +16,7 @@ extern crate gfx_device_gl;
 extern crate gfx_pipeline;
 extern crate gfx_text;
 extern crate gfx_vr;
+extern crate gfx_scene_aabb_debug;
 
 extern crate engine;
 extern crate draw_queue;
@@ -29,6 +31,7 @@ use transform::{Solved, TransformOutput};
 use graphics::{
     Graphics, Texture, Geometry,
     Pos, PosTex, PosNorm, PosTexNorm,
+    VertexPos
 };
 use scene::{Scene, SceneOutput};
 use engine::Window;
@@ -85,8 +88,8 @@ pub struct Renderer<R: Resources, C: gfx::CommandBuffer<R>, D: gfx::Device, F: F
     sampler: gfx::handle::Sampler<R>,
     text: gfx_text::Renderer<R, F>,
     ivr: Option<vr::IVRSystem>,
-    gvr: Option<gfx_vr::Render<R, C>>
-
+    gvr: Option<gfx_vr::Render<R, C>>,
+    aabb_debug: gfx_scene_aabb_debug::AabbRender<R>
 }
 
 pub struct Position(pub HashMap<Entity, Solved>);
@@ -136,6 +139,7 @@ impl<R: gfx::Resources, M> gfx_scene::Entity<R, M> for MaterializedEntity<R, M> 
     fn get_fragments(&self) -> &[gfx_scene::Fragment<R, M>] { &self.fragments[..] }
 }
 
+
 impl<R, C, D, F> AbstractScene<R> for Renderer<R, C, D, F>
     where R: Resources,
           C: gfx::CommandBuffer<R>,
@@ -169,10 +173,8 @@ impl<R, C, D, F> AbstractScene<R> for Renderer<R, C, D, F>
                    self.materials.get(&(draw.1)),
                    self.position.0.get(&eid)) {
                 (Some(a), Some(b), Some(c)) => {
-                    let aabb = self.bounding.scaled_aabb(&draw.0, c.0.into()).unwrap();
-
                     Some(MaterializedEntity{
-                        aabb: aabb,
+                        aabb: self.bounding.aabb[&draw.0],
                         transform: AffineMatrix3{mat: c.0.into()},
                         mesh: a.mesh.clone(),
                         fragments: [gfx_scene::Fragment{
@@ -186,8 +188,12 @@ impl<R, C, D, F> AbstractScene<R> for Renderer<R, C, D, F>
             }
         }).collect();
 
-        Context::new(&mut culler, camera)
-                .draw(items.iter(), phase, stream)
+        let res = Context::new(&mut culler, camera)
+            .draw(items.iter(), phase, stream);
+
+
+        //self.aabb_debug.render(items.iter(), camera, stream);
+        res
     }
 }
 
@@ -273,6 +279,7 @@ impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device,
             }
         );
 
+        let aabb_debug = gfx_scene_aabb_debug::AabbRender::new(&mut factory).unwrap();
 
         let gfx_vr = vr.as_ref().map(|vr| gfx_vr::Render::new(&mut factory, vr));
 
@@ -300,7 +307,8 @@ impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device,
             sampler: sampler,
             text: text,
             ivr: vr,
-            gvr: gfx_vr
+            gvr: gfx_vr,
+            aabb_debug: aabb_debug
         })
     }
 }
