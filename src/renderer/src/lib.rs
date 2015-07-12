@@ -592,11 +592,14 @@ impl<R, C, D, F> Renderer<R, C, D, F>
     }
 
     fn sync(&mut self) {
+        let _g = hprof::enter("graphics-fetch");
         self.graphics.next_frame();
-        self.bounding.next_frame();
+        drop(_g);
 
+        let _g = hprof::enter("vertex_buffer");
         let graphics = self.graphics.clone();
         for (&id, &msg) in graphics.vertex_buffer_updated.iter() {
+            println!("Updating {:?}", id);
             match msg {
                 graphics::Flag::Updated => {
                     update_vertex_buffer(&mut self.factory, &graphics, &mut self.vertex, id);
@@ -604,7 +607,11 @@ impl<R, C, D, F> Renderer<R, C, D, F>
                 graphics::Flag::Deleted => {}
             }
         }
+        drop(_g);
+
+        let _g = hprof::enter("texture_updated");
         for (&id, &msg) in graphics.texture_updated.iter() {
+            println!("Updating {:?}", id);
             match msg {
                 graphics::Flag::Updated => {
                     self.add_texture(id, graphics.texture.get(&id).unwrap());
@@ -612,7 +619,11 @@ impl<R, C, D, F> Renderer<R, C, D, F>
                 graphics::Flag::Deleted => {}
             }            
         }
+        drop(_g);
+
+        let _g = hprof::enter("material_updated");
         for (&id, &msg) in graphics.material_updated.iter() {
+            println!("Updating {:?}", id);
             match msg {
                 graphics::Flag::Updated => {
                     self.add_material_texture(id);
@@ -620,7 +631,11 @@ impl<R, C, D, F> Renderer<R, C, D, F>
                 graphics::Flag::Deleted => {}
             }
         }
+        drop(_g);
+
+        let _g = hprof::enter("geometry_updated");
         for (&id, &msg) in graphics.geometry_updated.iter() {
+            println!("Updating {:?}", id);
             match msg {
                 graphics::Flag::Updated => {
                     self.update_geometry(id);
@@ -628,9 +643,9 @@ impl<R, C, D, F> Renderer<R, C, D, F>
                 graphics::Flag::Deleted => {}
             }
         }
+        drop(_g);
 
-
-
+        let _g = hprof::enter("select");
         let mut select: SelectMap<fn(&mut Renderer<R, C, D, F>) -> Option<Signal>> = SelectMap::new();
         select.add(self.transform_input.signal(), Renderer::sync_position);
         select.add(self.scene_output.signal(), Renderer::sync_scene);
@@ -645,6 +660,11 @@ impl<R, C, D, F> Renderer<R, C, D, F>
         self.transform_input.next_frame();
         self.scene_output.next_frame();
         self.render_input.next_frame();
+        drop(_g);
+
+        let _g = hprof::enter("bounding-fetch");
+        self.bounding.next_frame();
+        drop(_g);
     }
 
     #[cfg(feature="virtual_reality")]
@@ -712,7 +732,7 @@ impl<R, C, D, F> Renderer<R, C, D, F>
     #[cfg(not(feature="virtual_reality"))]
     pub fn draw(&mut self, _: &mut fibe::Schedule, window: &mut Window<D, R>) {
         hprof::start_frame();
-        let _g = hprof::enter("sync system");
+        let _g = hprof::enter("sync");
         self.sync();
         drop(_g);
 
