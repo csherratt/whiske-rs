@@ -19,6 +19,7 @@ pub struct Bounding {
     next: shared_future::Future<Bounding>
 }
 
+#[derive(Clone)]
 pub struct BoundingStore {
     vb_to_geo: HashMap<Entity, HashSet<Geometry>>,
     pub aabb: HashMap<graphics::Geometry, Aabb3<f32>>,
@@ -120,16 +121,20 @@ impl Bounding {
 
         inner.update(&g);
 
-        let (mut own, l) = lease::lease(inner);
+        let (mut front, l) = lease::lease(inner.clone());
+        let (mut back, _) = lease::lease(inner);
         let (future, mut set) = shared_future::Future::new();
 
         task(move |_| {
             loop {
                 g.next_frame();
-                let mut inner = own.get();
+                let mut inner = back.get();
+                inner.clone_from(&*front);
+
                 inner.update(&g);
                 let (nown, nlease) = lease::lease(inner);
-                own = nown;
+                back = front;
+                front = nown;
                 let (next, nset) = shared_future::Future::new();
                 set.set(Bounding{
                     inner: Some(nlease),
