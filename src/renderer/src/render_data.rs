@@ -98,6 +98,7 @@ impl entity::WriteEntity<Entity, DebugText> for Renderer {
     }
 }
 
+#[derive(Clone)]
 pub struct RenderData {
     pub cameras: HashMap<Entity, Camera>,
     pub debug_text: HashMap<Entity, DebugText>,
@@ -110,14 +111,22 @@ impl Renderer {
         let (tx, rx) = channel();
         let (future, set) = shared_future::Future::new();
 
-        let (owner, lease) = lease::lease(RenderData{
+        let (fowner, lease) = lease::lease(RenderData{
             cameras: HashMap::new(),
             debug_text: HashMap::new(),
             binding: HashMap::new(),
             primary: None
         });
 
-        task(|_| worker(owner, set, rx)).start(sched);
+        let (bowner, _) = lease::lease(RenderData{
+            cameras: HashMap::new(),
+            debug_text: HashMap::new(),
+            binding: HashMap::new(),
+            primary: None
+        });
+
+
+        task(|_| worker(fowner, bowner, set, rx)).start(sched);
 
         Renderer::Valid {
             channel: tx,
@@ -160,12 +169,14 @@ impl ops::Deref for Renderer {
     }
 }
 
-fn worker(mut owner: lease::Owner<RenderData>,
+
+fn worker(mut front: lease::Owner<RenderData>,
+          mut back: lease::Owner<RenderData>,
           mut set: shared_future::Set<Renderer>,
           mut input: Receiver<Message>) {
-
     loop {
-        let mut data = owner.get();
+        let mut data = back.get();
+        data.clone_from(&*front);
 
         while let Ok(msg) = input.recv().map(|x| x.clone()) {
             match msg {
@@ -206,7 +217,8 @@ fn worker(mut owner: lease::Owner<RenderData>,
             next: next,
             data: lease
         });
-        owner = nowner;
+        back = front;
+        front = nowner;
         set = nset;
         input = ninput;
     }
