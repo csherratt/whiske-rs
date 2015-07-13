@@ -49,6 +49,12 @@ git = "https://github.com/slide-rs/fibe-rs.git"
 [dependencies.gfx_pipeline]
 git = "https://github.com/csherratt/gfx_pipeline.git"
 
+[dependencies.lease]
+git = "https://github.com/csherratt/lease.git"
+
+[dependencies.shared_future]
+git = "https://github.com/csherratt/shared_future.git"
+
 [dependencies.vr]
 git = "https://github.com/csherratt/vr-rs.git"
 optional = true

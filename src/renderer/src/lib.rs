@@ -7,6 +7,8 @@ extern crate fibe;
 extern crate bounding;
 extern crate hprof;
 extern crate genmesh;
+extern crate lease;
+extern crate shared_future;
 
 #[macro_use]
 extern crate gfx;
@@ -27,6 +29,8 @@ extern crate image;
 
 #[cfg(feature="virtual_reality")]
 extern crate vr;
+
+mod render_data;
 
 use std::collections::{HashMap, HashSet};
 use snowstorm::channel;
@@ -55,34 +59,28 @@ use cgmath::{Transform, AffineMatrix3, Matrix4, Aabb3};
 #[cfg(feature="virtual_reality")]
 use cgmath::Matrix;
 
+pub use render_data::{DrawBinding, Camera, Primary, DebugText, Renderer};
+
 struct GeometrySlice<R: Resources> {
     mesh: Mesh<R>,
     slice: Slice<R>
 }
 
-pub struct Renderer<R: Resources, C: gfx::CommandBuffer<R>, D: gfx::Device, F: Factory<R>> {
+pub struct RendererSystem<R: Resources, C: gfx::CommandBuffer<R>, D: gfx::Device, F: Factory<R>> {
     device: D,
     factory: F,
 
+    //data
     graphics: graphics::Graphics,
     transform_input: TransformOutput,
-    render_input: channel::Receiver<Message>,
     scene_output: SceneOutput,
-
     position: Position,
-
     bounding: bounding::Bounding,
-
     vertex: HashMap<Entity, (Mesh<R>, Option<handle::Buffer<R, u32>>)>,
     materials: HashMap<graphics::Material, Material<R>>,
     geometry_slice: HashMap<Geometry, GeometrySlice<R>>,
     textures: HashMap<Texture, handle::Texture<R>>,
-    cameras: HashMap<Entity, Camera>,
-    debug_text: HashMap<Entity, DebugText>,
-
-    primary: Option<Entity>,
-
-    binding: HashMap<Entity, DrawBinding>,
+    render: Renderer,
 
     scene: Scene,
     scenes: HashMap<Scene, HashSet<Entity>>,
@@ -151,7 +149,7 @@ impl<R: gfx::Resources, M> gfx_scene::Entity<R, M> for MaterializedEntity<R, M> 
 }
 
 
-impl<R, C, D, F> AbstractScene<R> for Renderer<R, C, D, F>
+impl<R, C, D, F> AbstractScene<R> for RendererSystem<R, C, D, F>
     where R: Resources,
           C: gfx::CommandBuffer<R>,
           D: gfx::Device,
@@ -177,7 +175,7 @@ impl<R, C, D, F> AbstractScene<R> for Renderer<R, C, D, F>
                                   .unwrap_or_else(|| &empty);
         let items: Vec<MaterializedEntity<R, Material<R>>> =
             drawlist.iter()
-                    .filter_map(|eid| self.binding.get(eid).map(|x| (eid, x)))
+                    .filter_map(|eid| self.render.binding.get(eid).map(|x| (eid, x)))
                     .filter_map(|(eid, draw)| {
 
             match (self.geometry_slice.get(&draw.0),
@@ -208,56 +206,17 @@ impl<R, C, D, F> AbstractScene<R> for Renderer<R, C, D, F>
     }
 }
 
-#[derive(Clone)]
-pub enum Message {
-    Binding(Operation<Entity, DrawBinding>),
-    Camera(Operation<Entity, Camera>),
-    Slot(Operation<Entity, Primary>),
-    DebugText(Operation<Entity, DebugText>)
-}
-
-pub struct RendererInput(pub channel::Sender<Message>);
-
-impl RendererInput {
-    pub fn next_frame(&mut self) {
-        self.0.next_frame();
-    }
-}
-
-impl entity::WriteEntity<Entity, DrawBinding> for RendererInput {
-    fn write(&mut self, eid: Entity, value: DrawBinding) {
-        self.0.send(Message::Binding(Operation::Upsert(eid, value)))
-    }
-}
-
-impl entity::WriteEntity<Entity, Primary> for RendererInput {
-    fn write(&mut self, eid: Entity, value: Primary) {
-        self.0.send(Message::Slot(Operation::Upsert(eid, value)))
-    }
-}
-
-impl entity::WriteEntity<Entity, Camera> for RendererInput {
-    fn write(&mut self, eid: Entity, value: Camera) {
-        self.0.send(Message::Camera(Operation::Upsert(eid, value)))
-    }
-}
-
-impl entity::WriteEntity<Entity, DebugText> for RendererInput {
-    fn write(&mut self, eid: Entity, value: DebugText) {
-        self.0.send(Message::DebugText(Operation::Upsert(eid, value)))
-    }
-}
-
-impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device, F>
+impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device, F>
     where F: gfx::Factory<gfx_device_gl::Resources>+Clone
 
 {
     #[cfg(feature="virtual_reality")]
-    pub fn new(graphics: Graphics,
+    pub fn new(sched: &mut fibe::Schedule,
+               graphics: Graphics,
                position: TransformOutput,
                scene: SceneOutput,
                bounding: bounding::Bounding,
-               ra: engine::RenderArgs<Device, F>) -> (RendererInput, Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device, F>) {
+               ra: engine::RenderArgs<Device, F>) -> (Renderer, RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device, F>) {
 
         use gfx::tex::WrapMode::Tile;
 
@@ -278,7 +237,6 @@ impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device,
 
             }
         ];
-        let (tx, rx) = channel::channel();
 
         let text = gfx_text::new(factory.clone()).unwrap();
         let sampler = factory.create_sampler(
@@ -294,26 +252,24 @@ impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device,
         let aabb_debug = gfx_scene_aabb_debug::AabbRender::new(&mut factory).unwrap();
         let gfx_vr = vr.as_ref().map(|vr| gfx_vr::Render::new(&mut factory, vr));
 
-        (RendererInput(tx),
-         Renderer {
+        let render = Renderer::new(sched);
+
+        (render.clone(),
+         RendererSystem {
+            render: render,
             device: device,
             factory: factory,
             graphics: graphics,
             transform_input: position,
-            render_input: rx,
             position: Position(HashMap::new()),
             vertex: HashMap::new(),
             materials: HashMap::new(),
             geometry_slice: HashMap::new(),
-            binding: HashMap::new(),
-            debug_text: HashMap::new(),
             pipeline: Some(pipeline),
             scenes: HashMap::new(),
             scene_output: scene,
             scene: Scene::new(),
             bounding: bounding,
-            primary: None,
-            cameras: HashMap::new(),
             textures: HashMap::new(),
             sampler: sampler,
             text: text,
@@ -324,14 +280,14 @@ impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device,
     }
 
     #[cfg(not(feature="virtual_reality"))]
-    pub fn new(graphics: Graphics,
+    pub fn new(sched: &mut fibe::Schedule,
+               graphics: Graphics,
                position: TransformOutput,
                scene: SceneOutput,
                bounding: bounding::Bounding,
-               ra: engine::RenderArgs<Device, F>) -> (RendererInput, Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device, F>) {
+               ra: engine::RenderArgs<Device, F>) -> (Renderer, RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device, F>) {
 
         use gfx::tex::WrapMode::Tile;
-
         let (device, mut factory) = (ra.device, ra.factory);
 
         let mut pipeline = forward::Pipeline::new(&mut factory).unwrap();
@@ -349,7 +305,6 @@ impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device,
 
             }
         ];
-        let (tx, rx) = channel::channel();
 
         let text = gfx_text::new(factory.clone()).unwrap();
         let sampler = factory.create_sampler(
@@ -364,26 +319,24 @@ impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device,
 
         let aabb_debug = gfx_scene_aabb_debug::AabbRender::new(&mut factory).unwrap();
 
-        (RendererInput(tx),
-         Renderer {
+        let render = Renderer::new(sched);
+
+        (render.clone(),
+         RendererSystem {
+            render: render,
             device: device,
             factory: factory,
             graphics: graphics,
             transform_input: position,
-            render_input: rx,
             position: Position(HashMap::new()),
             vertex: HashMap::new(),
             materials: HashMap::new(),
             geometry_slice: HashMap::new(),
-            binding: HashMap::new(),
-            debug_text: HashMap::new(),
             pipeline: Some(pipeline),
             scenes: HashMap::new(),
             scene_output: scene,
             scene: Scene::new(),
             bounding: bounding,
-            primary: None,
-            cameras: HashMap::new(),
             textures: HashMap::new(),
             sampler: sampler,
             text: text,
@@ -391,6 +344,7 @@ impl<F> Renderer<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device,
             phantom: std::marker::PhantomData
         })
     }
+
 }
 
 fn update_vertex_buffer<R, F>(factory: &mut F,
@@ -416,7 +370,7 @@ fn update_vertex_buffer<R, F>(factory: &mut F,
     table.insert(id, (vertex, index));
 }
 
-impl<R, C, D, F> Renderer<R, C, D, F>
+impl<R, C, D, F> RendererSystem<R, C, D, F>
     where R: Resources,
           C: gfx::CommandBuffer<R>,
           D: gfx::Device<Resources=R, CommandBuffer=C>,
@@ -536,45 +490,6 @@ impl<R, C, D, F> Renderer<R, C, D, F>
         });
     }
 
-    fn sync_binding(&mut self) -> Option<Signal> {
-        while let Some(msg) = self.render_input.try_recv().map(|x| x.clone()) {
-            match msg {
-                Message::Binding(Operation::Upsert(eid, binding)) => {
-                    self.binding.insert(eid, binding);                  
-                }
-                Message::Binding(Operation::Delete(eid)) => {
-                    self.binding.remove(&eid);
-                }
-                Message::Camera(Operation::Upsert(eid, camera)) => {
-                    self.cameras.insert(eid, camera);
-                }
-                Message::Camera(Operation::Delete(eid)) => {
-                    self.cameras.remove(&eid);
-                }
-                Message::Slot(Operation::Upsert(eid, _)) => {
-                    self.primary = Some(eid);
-                }
-                Message::Slot(Operation::Delete(eid)) => {
-                    if self.primary == Some(eid) {
-                        self.primary = None;
-                    }
-                }
-                Message::DebugText(Operation::Upsert(eid, text)) => {
-                    self.debug_text.insert(eid, text);
-                }
-                Message::DebugText(Operation::Delete(eid)) => {
-                    self.debug_text.remove(&eid);
-                }
-            }
-        }
-
-        if self.render_input.closed() {
-            None
-        } else {
-            Some(self.render_input.signal())
-        }
-    }
-
     fn sync_position(&mut self) -> Option<Signal> {
         for msg in self.transform_input.copy_iter(false) {
             msg.write(&mut self.position.0);
@@ -646,10 +561,9 @@ impl<R, C, D, F> Renderer<R, C, D, F>
         drop(_g);
 
         let _g = hprof::enter("select");
-        let mut select: SelectMap<fn(&mut Renderer<R, C, D, F>) -> Option<Signal>> = SelectMap::new();
-        select.add(self.transform_input.signal(), Renderer::sync_position);
-        select.add(self.scene_output.signal(), Renderer::sync_scene);
-        select.add(self.render_input.signal(), Renderer::sync_binding);
+        let mut select: SelectMap<fn(&mut RendererSystem<R, C, D, F>) -> Option<Signal>> = SelectMap::new();
+        select.add(self.transform_input.signal(), RendererSystem::sync_position);
+        select.add(self.scene_output.signal(), RendererSystem::sync_scene);
 
         while let Some((_, cb)) = select.next() {
             if let Some(s) = cb(self) {
@@ -659,11 +573,14 @@ impl<R, C, D, F> Renderer<R, C, D, F>
 
         self.transform_input.next_frame();
         self.scene_output.next_frame();
-        self.render_input.next_frame();
         drop(_g);
 
         let _g = hprof::enter("bounding-fetch");
         self.bounding.next_frame();
+        drop(_g);
+
+        let _g = hprof::enter("render-fetch");
+        self.render.next_frame();
         drop(_g);
     }
 
@@ -674,8 +591,8 @@ impl<R, C, D, F> Renderer<R, C, D, F>
         self.sync();
         drop(_g);
 
-        let camera = if let Some(cid) = self.primary {
-            if let Some(c) = self.cameras.get(&cid) {
+        let camera = if let Some(cid) = self.render.primary {
+            if let Some(c) = self.render.cameras.get(&cid) {
                 Some((MaterializedCamera {
                     projection: c.0.clone().into(),
                     transform: self.position.0
@@ -715,7 +632,7 @@ impl<R, C, D, F> Renderer<R, C, D, F>
             self.ivr = ivr;
             self.gvr = gvr;
 
-            for (_, text) in self.debug_text.iter() {
+            for (_, text) in self.render.debug_text.iter() {
                 self.text.add(
                     &text.text, text.start, text.color
                 );
@@ -725,7 +642,7 @@ impl<R, C, D, F> Renderer<R, C, D, F>
             window.present(&mut self.device);
             drop(_g);
             hprof::end_frame();
-            //hprof::profiler().print_timing();
+            hprof::profiler().print_timing();
         }
     }
 
@@ -736,8 +653,8 @@ impl<R, C, D, F> Renderer<R, C, D, F>
         self.sync();
         drop(_g);
 
-        let camera = if let Some(cid) = self.primary {
-            if let Some(c) = self.cameras.get(&cid) {
+        let camera = if let Some(cid) = self.render.primary {
+            if let Some(c) = self.render.cameras.get(&cid) {
                 Some((MaterializedCamera {
                     projection: c.0.clone().into(),
                     transform: self.position.0
@@ -759,7 +676,7 @@ impl<R, C, D, F> Renderer<R, C, D, F>
             pipeline.render(self, &camera, window).unwrap();
             self.pipeline = Some(pipeline);
 
-            for (_, text) in self.debug_text.iter() {
+            for (_, text) in self.render.debug_text.iter() {
                 self.text.add(
                     &text.text, text.start, text.color
                 );
@@ -769,31 +686,9 @@ impl<R, C, D, F> Renderer<R, C, D, F>
             window.present(&mut self.device);
             drop(_g);
             hprof::end_frame();
-            //hprof::profiler().print_timing();
+            hprof::profiler().print_timing();
         }
     }
-}
-
-
-
-/// This holds the binding between a geometry and the material
-/// for a drawable entity
-#[derive(Copy, Clone, Debug)]
-pub struct DrawBinding(pub graphics::Geometry, pub graphics::Material);
-
-///
-#[derive(Copy, Clone)]
-pub struct Camera(pub cgmath::PerspectiveFov<f32, cgmath::Deg<f32>>, pub Scene);
-
-/// Marker for which camera is the pimary
-#[derive(Copy, Clone, Debug)]
-pub struct Primary;
-
-#[derive(Clone, Debug)]
-pub struct DebugText{
-    pub text: String,
-    pub start: [i32; 2],
-    pub color: [f32; 4]
 }
 
 

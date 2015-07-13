@@ -23,7 +23,7 @@ use graphics::{
     Material, MaterialComponent, GeometryData
 };
 use parent::{Parent, ParentInput};
-use renderer::{DrawBinding, Camera, Primary, RendererInput, DebugText};
+use renderer::{DrawBinding, Camera, Primary, Renderer, DebugText};
 use scene::Scene;
 use cgmath::{Decomposed, Transform, PerspectiveFov};
 use future_pulse::Future;
@@ -43,7 +43,7 @@ router!{
         [Entity, DrawBinding] |
         [Entity, Camera] |
         [Entity, DebugText] |
-        [Entity, Primary] => renderer: RendererInput,
+        [Entity, Primary] => renderer: Renderer,
         [Entity, Delta] => transform: TransformInput,
         [Entity, Scene] |
         [Scene, Entity] => scene: scene::SceneInput,
@@ -70,8 +70,8 @@ fn main() {
     let bound = bounding::Bounding::new(engine.sched(), graphics.clone());
 
     let (read, set) = Future::new();
-    engine.start_render(|_, ra|{
-        let (input, mut renderer) = renderer::Renderer::new(graphics.clone(), toutput, soutput, bound, ra);
+    engine.start_render(|sched, ra|{
+        let (input, mut renderer) = renderer::RendererSystem::new(sched, graphics.clone(), toutput, soutput, bound, ra);
         set.set(input);
         Box::new(move |sched, stream| {
             renderer.draw(sched, stream);
