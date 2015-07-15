@@ -18,5 +18,14 @@ git = "https://github.com/csherratt/entity"
 [dependencies.whiske-rs-parent]
 path = "../parent"
 
+[dependencies.whiske-rs-system]
+path = "../system"
+
 [dependencies.snowstorm]
 git = "https://github.com/csherratt/snowstorm"
+
+[dependencies.lease]
+git = "https://github.com/csherratt/lease.git"
+
+[dependencies.shared_future]
+git = "https://github.com/csherratt/shared_future.git"
