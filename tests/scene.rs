@@ -2,7 +2,7 @@ extern crate parent;
 extern crate scene;
 extern crate entity;
 extern crate fibe;
-
+/*
 use std::collections::HashMap;
 use parent::parent;
 use scene::{scene, Scene};
@@ -118,3 +118,4 @@ fn delete_parent() {
     assert!(map.get(&scene).is_none());
 }
 
+*/

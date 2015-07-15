@@ -39,7 +39,7 @@ router!{
         [Entity, Primary] => renderer: Renderer,
         [Entity, Delta] => transform: TransformInput,
         [Entity, Scene] |
-        [Scene, Entity] => scene: scene::SceneInput,
+        [Scene, Entity] => scene: scene::SceneSystem,
         [Entity, Parent] => parent: ParentInput
     }
 }
@@ -57,15 +57,16 @@ impl Router {
 fn main() {
     let mut engine = engine::Engine::new();
     let (pinput, poutput) = parent::parent(engine.sched());
-    let (sinput, soutput) = scene::scene(engine.sched(), poutput.clone());
+    let sscene = scene::scene(engine.sched(), poutput.clone());
     let (tinput, toutput) = transform::transform(engine.sched(), poutput.clone());
     let graphics = graphics::Graphics::new(engine.sched());
 
     let bound = bounding::Bounding::new(engine.sched(), graphics.clone());
 
+    let s = sscene.clone();
     let (read, set) = Future::new();
     engine.start_render(|sched, ra|{
-        let (input, mut renderer) = renderer::RendererSystem::new(sched, graphics.clone(), toutput, soutput, bound, ra);
+        let (input, mut renderer) = renderer::RendererSystem::new(sched, graphics.clone(), toutput, s, bound, ra);
         set.set(input);
         Box::new(move |sched, stream| {
             renderer.draw(sched, stream);
@@ -76,7 +77,7 @@ fn main() {
         graphics: graphics,
         renderer: read.get(),
         transform: tinput,
-        scene: sinput,
+        scene: sscene,
         parent: pinput
     };
 

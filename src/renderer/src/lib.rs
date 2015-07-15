@@ -39,7 +39,7 @@ use graphics::{
     Graphics, Texture, Geometry,
     Pos, PosTex, PosNorm, PosTexNorm,
 };
-use scene::{Scene, SceneOutput};
+use scene::{Scene, SceneSystem};
 use engine::Window;
 use pulse::{Signal, SelectMap, Signals};
 use entity::{Entity, Operation};
@@ -73,7 +73,7 @@ pub struct RendererSystem<R: Resources, C: gfx::CommandBuffer<R>, D: gfx::Device
     //data
     graphics: graphics::Graphics,
     transform_input: TransformOutput,
-    scene_output: SceneOutput,
+    scenes: SceneSystem,
     position: Position,
     bounding: bounding::Bounding,
     vertex: HashMap<Entity, (Mesh<R>, Option<handle::Buffer<R, u32>>)>,
@@ -83,7 +83,6 @@ pub struct RendererSystem<R: Resources, C: gfx::CommandBuffer<R>, D: gfx::Device
     render: Renderer,
 
     scene: Scene,
-    scenes: HashMap<Scene, HashSet<Entity>>,
 
     pipeline: Option<forward::Pipeline<R>>,
 
@@ -171,7 +170,7 @@ impl<R, C, D, F> AbstractScene<R> for RendererSystem<R, C, D, F>
     {   
         let mut culler = Frustum::new();
         let empty = HashSet::new();
-        let drawlist = self.scenes.get(&self.scene)
+        let drawlist = self.scenes.scene_entities(self.scene)
                                   .unwrap_or_else(|| &empty);
         let items: Vec<MaterializedEntity<R, Material<R>>> =
             drawlist.iter()
@@ -283,7 +282,7 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, D
     pub fn new(sched: &mut fibe::Schedule,
                graphics: Graphics,
                position: TransformOutput,
-               scene: SceneOutput,
+               scene: SceneSystem,
                bounding: bounding::Bounding,
                ra: engine::RenderArgs<Device, F>) -> (Renderer, RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device, F>) {
 
@@ -333,8 +332,7 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, D
             materials: HashMap::new(),
             geometry_slice: HashMap::new(),
             pipeline: Some(pipeline),
-            scenes: HashMap::new(),
-            scene_output: scene,
+            scenes: scene,
             scene: Scene::new(),
             bounding: bounding,
             textures: HashMap::new(),
@@ -502,10 +500,6 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
         }
     }
 
-    fn sync_scene(&mut self) -> Option<Signal> {
-        self.scene_output.write_into(&mut self.scenes)
-    }
-
     fn sync(&mut self) {
         let _g = hprof::enter("graphics-fetch");
         self.graphics.next_frame();
@@ -560,10 +554,13 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
         }
         drop(_g);
 
+        let _g = hprof::enter("scenes-fetch");
+        self.scenes.next_frame();
+        drop(_g);
+
         let _g = hprof::enter("select");
         let mut select: SelectMap<fn(&mut RendererSystem<R, C, D, F>) -> Option<Signal>> = SelectMap::new();
         select.add(self.transform_input.signal(), RendererSystem::sync_position);
-        select.add(self.scene_output.signal(), RendererSystem::sync_scene);
 
         while let Some((_, cb)) = select.next() {
             if let Some(s) = cb(self) {
@@ -572,8 +569,9 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
         }
 
         self.transform_input.next_frame();
-        self.scene_output.next_frame();
         drop(_g);
+
+
 
         let _g = hprof::enter("bounding-fetch");
         self.bounding.next_frame();

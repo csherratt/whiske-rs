@@ -27,6 +27,8 @@ pub enum Message {
 
 #[derive(Clone, Debug)]
 pub struct SceneData {
+    parent_mesages: Vec<parent::Message>,
+
     // entity is a member of x scenes
     belongs_to: HashMap<Entity, HashSet<Entity>>,
 
@@ -37,6 +39,24 @@ pub struct SceneData {
     parent_to_children: HashMap<Entity, HashSet<Entity>>
 }
 
+// Reads from the parent channel
+fn sync_parent(parents: &mut ParentOutput) -> Vec<parent::Message> {
+    let mut msgs: Vec<parent::Message> = Vec::new();
+    while let Ok(op) = parents.recv() {
+        msgs.push(*op);
+    }
+    msgs
+}
+
+// Reads from the parent channel
+fn sync_ingest(ingest: &mut system::channel::Receiver<Message>) -> Vec<Message> {
+    let mut msgs: Vec<Message> = Vec::new();
+    while let Ok(op) = ingest.recv() {
+        msgs.push(*op);
+    }
+    msgs
+}
+
 impl SceneData {
     /// Get the entitires for a supplied scene
     pub fn scene_entities(&self, scene: Scene) -> Option<&HashSet<Entity>> {
@@ -45,15 +65,15 @@ impl SceneData {
 
     fn new() -> SceneData {
         SceneData {
+            parent_mesages: Vec::new(),
             belongs_to: HashMap::new(),
             contains: HashMap::new(),
             parent_to_children: HashMap::new()
         }
     }
 
-    // Reads from the parent channel
-    fn sync_parent(&mut self, parents: &mut ParentOutput) {
-        while let Ok(op) = parents.recv() {
+    fn apply_parent(&mut self, msgs: &[parent::Message]) {
+        for op in msgs.iter() {
             match op {
                 &Operation::Upsert(ref parent, Parent::Child(child)) => {
                     self.parent_to_children
@@ -89,13 +109,11 @@ impl SceneData {
                 }
             }
         }
-
-        parents.next_frame();
     }
 
     /// Read from the ingest channel
-    fn sync_ingest(&mut self, mut ingest: system::channel::Receiver<Message>) {
-        while let Ok(op) = ingest.recv() {
+    fn apply_ingest(&mut self, msgs: &[Message]) {
+        for op in msgs.iter() {
             match op {
                 &Message::Bind(Scene(scene), eid) => {
                     self.contains
@@ -185,13 +203,24 @@ pub fn scene(sched: &mut Schedule, mut parents: ParentOutput) -> SceneSystem {
     let sd = SceneData::new();
     let (mut system, handle) = system::System::new(sd.clone(), sd);
 
+    let mut lpmsgs = Vec::new();
+    let mut limsgs = Vec::new();
+
     task(move |_| {
         loop {
             let p = &mut parents;
-            system = system.update(|mut scene, last, msgs| {
-                scene.clone_from(last);
-                scene.sync_parent(p);
-                scene.sync_ingest(msgs);
+            system = system.update(|mut scene, _, mut msgs| {
+                let pmsgs = sync_parent(p);
+                p.next_frame();
+                let imsgs = sync_ingest(&mut msgs);
+
+                scene.apply_parent(&lpmsgs[..]);
+                scene.apply_ingest(&limsgs[..]);
+                scene.apply_parent(&pmsgs[..]);
+                scene.apply_ingest(&imsgs[..]);
+
+                lpmsgs = pmsgs;
+                limsgs = imsgs;
                 scene
             });
         }
