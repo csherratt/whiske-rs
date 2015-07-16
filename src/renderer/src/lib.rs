@@ -65,27 +65,33 @@ struct GeometrySlice<R: Resources> {
     slice: Slice<R>
 }
 
+struct Globals {
+    graphics: graphics::Graphics,
+    transform: TransformSystem,
+    scenes: SceneSystem,    
+    bounding: bounding::Bounding,
+    render: Renderer,
+}
+
+struct GfxData<R: Resources> {
+    vertex: HashMap<Entity, (Mesh<R>, Option<handle::Buffer<R, u32>>)>,
+    materials: HashMap<graphics::Material, Material<R>>,
+    geometry_slice: HashMap<Geometry, GeometrySlice<R>>,
+    textures: HashMap<Texture, handle::Texture<R>>,    
+    sampler: gfx::handle::Sampler<R>,
+}
+
 pub struct RendererSystem<R: Resources, C: gfx::CommandBuffer<R>, D: gfx::Device, F: Factory<R>> {
     device: D,
     factory: F,
 
-    //data
-    graphics: graphics::Graphics,
-    transform: TransformSystem,
-    scenes: SceneSystem,
-    bounding: bounding::Bounding,
-    vertex: HashMap<Entity, (Mesh<R>, Option<handle::Buffer<R, u32>>)>,
-    materials: HashMap<graphics::Material, Material<R>>,
-    geometry_slice: HashMap<Geometry, GeometrySlice<R>>,
-    textures: HashMap<Texture, handle::Texture<R>>,
-    render: Renderer,
-
-    scene: Scene,
+    // Tempoary holding place for the input data
+    globals: Option<Globals>,
+    gfx_data: Option<GfxData<R>>,
 
     pipeline: Option<forward::Pipeline<R>>,
 
     // debug
-    sampler: gfx::handle::Sampler<R>,
     text: gfx_text::Renderer<R, F>,
     aabb_debug: gfx_scene_aabb_debug::AabbRender<R>,
 
@@ -97,7 +103,6 @@ pub struct RendererSystem<R: Resources, C: gfx::CommandBuffer<R>, D: gfx::Device
     #[cfg(not(feature="virtual_reality"))]
     phantom: std::marker::PhantomData<C>
 }
-
 
 pub struct MaterializedCamera {
     transform: AffineMatrix3<f32>,
@@ -144,12 +149,15 @@ impl<R: gfx::Resources, M> gfx_scene::Entity<R, M> for MaterializedEntity<R, M> 
     fn get_fragments(&self) -> &[gfx_scene::Fragment<R, M>] { &self.fragments[..] }
 }
 
+struct RenderContext<R: Resources>{
+    scene: Scene,
+    local: GfxData<R>,
+    globals: Globals
+}
 
-impl<R, C, D, F> AbstractScene<R> for RendererSystem<R, C, D, F>
-    where R: Resources,
-          C: gfx::CommandBuffer<R>,
-          D: gfx::Device,
-          F: Factory<R>
+
+impl<R> AbstractScene<R> for RenderContext<R>
+    where R: Resources
 {
     type ViewInfo = gfx_pipeline::ViewInfo<f32>;
     type Material = Material<R>;
@@ -167,19 +175,19 @@ impl<R, C, D, F> AbstractScene<R> for RendererSystem<R, C, D, F>
     {   
         let mut culler = Frustum::new();
         let empty = HashSet::new();
-        let drawlist = self.scenes.scene_entities(self.scene)
-                                  .unwrap_or_else(|| &empty);
+        let drawlist = self.globals.scenes.scene_entities(self.scene)
+                                          .unwrap_or_else(|| &empty);
         let items: Vec<MaterializedEntity<R, Material<R>>> =
             drawlist.iter()
-                    .filter_map(|eid| self.render.binding.get(eid).map(|x| (eid, x)))
+                    .filter_map(|eid| self.globals.render.binding.get(eid).map(|x| (eid, x)))
                     .filter_map(|(eid, draw)| {
 
-            match (self.geometry_slice.get(&draw.0),
-                   self.materials.get(&(draw.1)),
-                   self.transform.world(*eid)) {
+            match (self.local.geometry_slice.get(&draw.0),
+                   self.local.materials.get(&(draw.1)),
+                   self.globals.transform.world(*eid)) {
                 (Some(a), Some(b), Some(c)) => {
                     Some(MaterializedEntity{
-                        aabb: self.bounding.aabb[&draw.0],
+                        aabb: self.globals.bounding.aabb[&draw.0],
                         transform: AffineMatrix3{mat: (*c).into()},
                         mesh: a.mesh.clone(),
                         fragments: [gfx_scene::Fragment{
@@ -252,20 +260,15 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, D
 
         (render.clone(),
          RendererSystem {
-            render: render,
             device: device,
             factory: factory,
-            graphics: graphics,
-            transform_input: position,
             position: Position(HashMap::new()),
             vertex: HashMap::new(),
             materials: HashMap::new(),
             geometry_slice: HashMap::new(),
             pipeline: Some(pipeline),
             scenes: HashMap::new(),
-            scene_output: scene,
             scene: Scene::new(),
-            bounding: bounding,
             textures: HashMap::new(),
             sampler: sampler,
             text: text,
@@ -279,7 +282,7 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, D
     pub fn new(sched: &mut fibe::Schedule,
                graphics: Graphics,
                transform: TransformSystem,
-               scene: SceneSystem,
+               scenes: SceneSystem,
                bounding: bounding::Bounding,
                ra: engine::RenderArgs<Device, F>) -> (Renderer, RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device, F>) {
 
@@ -314,25 +317,31 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, D
         );
 
         let aabb_debug = gfx_scene_aabb_debug::AabbRender::new(&mut factory).unwrap();
-
         let render = render_data::renderer(sched);
 
-        (render.clone(),
-         RendererSystem {
-            render: render,
-            device: device,
-            factory: factory,
-            graphics: graphics,
+        let globals = Globals{
             transform: transform,
+            graphics: graphics,
+            scenes: scenes,
+            bounding: bounding,
+            render: render.clone()
+        };
+
+        let gfx_data = GfxData{
             vertex: HashMap::new(),
             materials: HashMap::new(),
             geometry_slice: HashMap::new(),
-            pipeline: Some(pipeline),
-            scenes: scene,
-            scene: Scene::new(),
-            bounding: bounding,
             textures: HashMap::new(),
             sampler: sampler,
+        };
+
+        (render,
+         RendererSystem {
+            globals: Some(globals),
+            gfx_data: Some(gfx_data),
+            device: device,
+            factory: factory,
+            pipeline: Some(pipeline),
             text: text,
             aabb_debug: aabb_debug,
             phantom: std::marker::PhantomData
@@ -364,15 +373,9 @@ fn update_vertex_buffer<R, F>(factory: &mut F,
     table.insert(id, (vertex, index));
 }
 
-impl<R, C, D, F> RendererSystem<R, C, D, F>
-    where R: Resources,
-          C: gfx::CommandBuffer<R>,
-          D: gfx::Device<Resources=R, CommandBuffer=C>,
-          F: gfx::Factory<R>+Clone
 
-{
-
-    fn add_material_texture(&mut self, entity: graphics::Material) {
+impl<R: Resources> GfxData<R> {
+    fn add_material_texture(&mut self, graphics: &Graphics, entity: graphics::Material) {
         let dst = self.materials.entry(entity)
                       .or_insert_with(|| {
                        Material {
@@ -381,7 +384,7 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
                             transparency: Transparency::Opaque
                        }});
 
-        for (&id, &mat) in self.graphics.material.get(&entity).unwrap().iter() {
+        for (&id, &mat) in graphics.material.get(&entity).unwrap().iter() {
             match id {
                 graphics::Kd(_) => {
                     let text = if let Some(text) = self.textures.get(&mat) {
@@ -400,9 +403,12 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
 
     /// load target texture into graphics memory, and refer to it by the supplied
     /// entity id
-    fn add_texture(&mut self,
+    fn add_texture<F>(&mut self,
                    id: Texture,
-                   texture: &image::DynamicImage) {
+                   texture: &image::DynamicImage,
+                   factory: &mut F)
+        where F: Factory<R>
+    {
 
         // Flip the image
         //let texture = texture.flipv();
@@ -438,11 +444,10 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
             format: format,
         };
 
-        let text = self.factory
-                       .create_texture(tinfo)
-                       .ok().expect("Failed to create texture");
+        let text = factory.create_texture(tinfo)
+                          .ok().expect("Failed to create texture");
         let img_info = (*text.get_info()).into();
-        self.factory.update_texture(
+        factory.update_texture(
             &text,
             &img_info,
             &texture.raw_pixels()[..],
@@ -452,8 +457,8 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
         self.textures.insert(id, text);
     }
 
-    fn update_geometry(&mut self, id: Geometry) {
-        let geometry = self.graphics.geometry.get(&id).unwrap().clone();
+    fn update_geometry(&mut self, graphics: &Graphics, id: Geometry) {
+        let geometry = graphics.geometry.get(&id).unwrap().clone();
 
         match self.vertex.get(&geometry.buffer.parent) {
             Some(&(ref v, None)) => {
@@ -484,18 +489,15 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
         });
     }
 
-    fn sync(&mut self) {
-        let _g = hprof::enter("graphics-fetch");
-        self.graphics.next_frame();
-        drop(_g);
-
+    fn update_with_graphics<F>(&mut self, graphics: &Graphics, factory: &mut F)
+        where F: Factory<R>
+    {
         let _g = hprof::enter("vertex_buffer");
-        let graphics = self.graphics.clone();
         for (&id, &msg) in graphics.vertex_buffer_updated.iter() {
             println!("Updating {:?}", id);
             match msg {
                 graphics::Flag::Updated => {
-                    update_vertex_buffer(&mut self.factory, &graphics, &mut self.vertex, id);
+                    update_vertex_buffer(factory, &graphics, &mut self.vertex, id);
                 },
                 graphics::Flag::Deleted => {}
             }
@@ -507,7 +509,7 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
             println!("Updating {:?}", id);
             match msg {
                 graphics::Flag::Updated => {
-                    self.add_texture(id, graphics.texture.get(&id).unwrap());
+                    self.add_texture(id, graphics.texture.get(&id).unwrap(), factory);
                 },
                 graphics::Flag::Deleted => {}
             }            
@@ -519,7 +521,7 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
             println!("Updating {:?}", id);
             match msg {
                 graphics::Flag::Updated => {
-                    self.add_material_texture(id);
+                    self.add_material_texture(graphics, id);
                 },
                 graphics::Flag::Deleted => {}
             }
@@ -531,30 +533,70 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
             println!("Updating {:?}", id);
             match msg {
                 graphics::Flag::Updated => {
-                    self.update_geometry(id);
+                    self.update_geometry(graphics, id);
                 },
                 graphics::Flag::Deleted => {}
             }
         }
+        drop(_g);        
+    }
+
+    fn sync<F>(&mut self, globals: Globals, factory: &mut F) -> Globals
+        where F: Factory<R>
+    {
+        let Globals{
+            mut graphics,
+            scenes,
+            transform,
+            mut bounding,
+            render
+        } = globals;
+
+        let scenes = scenes.next_frame_async();
+        let transform = transform.next_frame_async();
+        let render = render.next_frame_async();
+
+        let _g = hprof::enter("graphics-fetch");
+        graphics.next_frame();
+        drop(_g);
+
+        self.update_with_graphics(&graphics, factory);
+
+        let _g = hprof::enter("bounding-fetch");
+        bounding.next_frame();
         drop(_g);
 
         let _g = hprof::enter("scenes-fetch");
-        self.scenes.next_frame();
+        let scenes = scenes.get().unwrap();
         drop(_g);
 
         let _g = hprof::enter("transform-fetch");
-        self.transform.next_frame();
-        drop(_g);
-
-        let _g = hprof::enter("bounding-fetch");
-        self.bounding.next_frame();
+        let transform = transform.get().unwrap();
         drop(_g);
 
         let _g = hprof::enter("render-fetch");
-        self.render.next_frame();
+        let render = render.get().unwrap();
         drop(_g);
+
+        Globals {
+            graphics: graphics,
+            scenes: scenes,
+            transform: transform,
+            bounding: bounding,
+            render: render
+        }
     }
 
+}
+
+
+impl<R, C, D, F> RendererSystem<R, C, D, F>
+    where R: Resources,
+          C: gfx::CommandBuffer<R>,
+          D: gfx::Device<Resources=R, CommandBuffer=C>,
+          F: gfx::Factory<R>+Clone
+
+{
     #[cfg(feature="virtual_reality")]
     pub fn draw(&mut self, _: &mut fibe::Schedule, window: &mut Window<D, R>) {
         hprof::start_frame();
@@ -619,19 +661,22 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
 
     #[cfg(not(feature="virtual_reality"))]
     pub fn draw(&mut self, _: &mut fibe::Schedule, window: &mut Window<D, R>) {
+        let mut globals = self.globals.take().unwrap();
+        let mut gfx_data = self.gfx_data.take().unwrap();
+
         hprof::start_frame();
         let _g = hprof::enter("sync");
-        self.sync();
+        globals = gfx_data.sync(globals, &mut self.factory);
         drop(_g);
 
-        let camera = if let Some(cid) = self.render.primary {
-            if let Some(c) = self.render.cameras.get(&cid) {
+        let camera = if let Some(cid) = globals.render.primary {
+            if let Some(c) = globals.render.cameras.get(&cid) {
                 Some((MaterializedCamera {
                     projection: c.0.clone().into(),
-                    transform: self.transform
-                                   .world(cid)
-                                   .map(|&x| AffineMatrix3{mat: x.into()})
-                                   .unwrap_or_else(|| AffineMatrix3::identity())
+                    transform: globals.transform
+                                      .world(cid)
+                                      .map(|&x| AffineMatrix3{mat: x.into()})
+                                      .unwrap_or_else(|| AffineMatrix3::identity())
                 }, c.1))
             } else {
                 None
@@ -641,13 +686,17 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
         };
 
         if let Some((camera, scene)) = camera {
-            self.scene = scene;
+            let rc = RenderContext{
+                scene: scene,
+                local: gfx_data,
+                globals: globals
+            };
 
             let mut pipeline = self.pipeline.take().unwrap();
-            pipeline.render(self, &camera, window).unwrap();
+            pipeline.render(&rc, &camera, window).unwrap();
             self.pipeline = Some(pipeline);
 
-            for (_, text) in self.render.debug_text.iter() {
+            for (_, text) in rc.globals.render.debug_text.iter() {
                 self.text.add(
                     &text.text, text.start, text.color
                 );
@@ -658,7 +707,14 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
             drop(_g);
             hprof::end_frame();
             hprof::profiler().print_timing();
+
+            self.globals = Some(rc.globals);
+            self.gfx_data = Some(rc.local);
+        } else {
+            self.globals = Some(globals);
+            self.gfx_data = Some(gfx_data);   
         }
+
     }
 }
 

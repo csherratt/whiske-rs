@@ -1,13 +1,10 @@
 
-use std::ops;
 use std::collections::HashMap;
 use cgmath;
 use graphics::{Geometry, Material};
 use scene::Scene;
 use entity::{self, Entity, Operation};
 use snowstorm::mpsc::*;
-use lease;
-use shared_future;
 use system;
 use fibe::{self, task};
 
