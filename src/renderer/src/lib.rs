@@ -217,8 +217,8 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, D
     #[cfg(feature="virtual_reality")]
     pub fn new(sched: &mut fibe::Schedule,
                graphics: Graphics,
-               position: TransformOutput,
-               scene: SceneOutput,
+               transform: TransformSystem,
+               scenes: SceneSystem,
                bounding: bounding::Bounding,
                ra: engine::RenderArgs<Device, F>) -> (Renderer, RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device, F>) {
 
@@ -256,25 +256,35 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, D
         let aabb_debug = gfx_scene_aabb_debug::AabbRender::new(&mut factory).unwrap();
         let gfx_vr = vr.as_ref().map(|vr| gfx_vr::Render::new(&mut factory, vr));
 
-        let render = Renderer::new(sched);
+        let render = render_data::renderer(sched);
 
-        (render.clone(),
-         RendererSystem {
-            device: device,
-            factory: factory,
-            position: Position(HashMap::new()),
+        let globals = Globals{
+            transform: transform,
+            graphics: graphics,
+            scenes: scenes,
+            bounding: bounding,
+            render: render.clone()
+        };
+
+        let gfx_data = GfxData{
             vertex: HashMap::new(),
             materials: HashMap::new(),
             geometry_slice: HashMap::new(),
-            pipeline: Some(pipeline),
-            scenes: HashMap::new(),
-            scene: Scene::new(),
             textures: HashMap::new(),
             sampler: sampler,
+        };
+
+        (render.clone(),
+         RendererSystem {
+            globals: Some(globals),
+            gfx_data: Some(gfx_data),
+            device: device,
+            factory: factory,
+            pipeline: Some(pipeline),
             text: text,
+            aabb_debug: aabb_debug,
             ivr: vr,
             gvr: gfx_vr,
-            aabb_debug: aabb_debug
         })
     }
 
@@ -599,19 +609,22 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
 {
     #[cfg(feature="virtual_reality")]
     pub fn draw(&mut self, _: &mut fibe::Schedule, window: &mut Window<D, R>) {
+        let mut globals = self.globals.take().unwrap();
+        let mut gfx_data = self.gfx_data.take().unwrap();
+
         hprof::start_frame();
-        let _g = hprof::enter("sync system");
-        self.sync();
+        let _g = hprof::enter("sync");
+        globals = gfx_data.sync(globals, &mut self.factory);
         drop(_g);
 
-        let camera = if let Some(cid) = self.render.primary {
-            if let Some(c) = self.render.cameras.get(&cid) {
+        let camera = if let Some(cid) = globals.render.primary {
+            if let Some(c) = globals.render.cameras.get(&cid) {
                 Some((MaterializedCamera {
                     projection: c.0.clone().into(),
-                    transform: self.position.0
-                                   .get(&cid)
-                                   .map(|x| AffineMatrix3{mat: x.0.into()})
-                                   .unwrap_or_else(|| AffineMatrix3::identity())
+                    transform: globals.transform
+                                      .world(cid)
+                                      .map(|&x| AffineMatrix3{mat: x.into()})
+                                      .unwrap_or_else(|| AffineMatrix3::identity())
                 }, c.1))
             } else {
                 None
@@ -620,8 +633,13 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
             None
         };
 
+
         if let Some((mut camera, scene)) = camera {
-            self.scene = scene;
+            let rc = RenderContext{
+                scene: scene,
+                local: gfx_data,
+                globals: globals
+            };
 
             let mut pipeline = self.pipeline.take().unwrap();
             let ivr = self.ivr.take();
@@ -633,19 +651,19 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
                     gvr.render_into(&ivr, |s, p, v| {
                         camera.projection = p;
                         camera.transform.mat = old.mul_m(&v.invert().unwrap());
-                        pipeline.render(self, &camera, s).unwrap();
+                        pipeline.render(&rc, &camera, s).unwrap();
                     });
                     gvr.render_frame(&ivr, &mut self.device, window);
                 }
                 _ => {
-                    pipeline.render(self, &camera, window).unwrap();
+                    pipeline.render(&rc, &camera, window).unwrap();
                 }
             }
             self.pipeline = Some(pipeline);
             self.ivr = ivr;
             self.gvr = gvr;
 
-            for (_, text) in self.render.debug_text.iter() {
+            for (_, text) in rc.globals.render.debug_text.iter() {
                 self.text.add(
                     &text.text, text.start, text.color
                 );
@@ -656,6 +674,12 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
             drop(_g);
             hprof::end_frame();
             hprof::profiler().print_timing();
+
+            self.globals = Some(rc.globals);
+            self.gfx_data = Some(rc.local);
+        } else {
+            self.globals = Some(globals);
+            self.gfx_data = Some(gfx_data);   
         }
     }
 
