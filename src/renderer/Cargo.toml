@@ -55,6 +55,9 @@ git = "https://github.com/csherratt/lease.git"
 [dependencies.shared_future]
 git = "https://github.com/csherratt/shared_future.git"
 
+[dependencies.whiske-rs-system]
+path = "../system"
+
 [dependencies.vr]
 git = "https://github.com/csherratt/vr-rs.git"
 optional = true

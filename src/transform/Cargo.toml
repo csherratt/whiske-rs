@@ -19,10 +19,8 @@ path = "../parent"
 [dependencies.whiske-rs-system]
 path = "../system"
 
-
 [dependencies.snowstorm]
 git = "https://github.com/csherratt/snowstorm.git"
 
 [dependencies.fibe]
 git = "https://github.com/slide-rs/fibe-rs.git"
-

@@ -9,6 +9,7 @@ extern crate hprof;
 extern crate genmesh;
 extern crate lease;
 extern crate shared_future;
+extern crate system;
 
 #[macro_use]
 extern crate gfx;
@@ -314,7 +315,7 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, D
 
         let aabb_debug = gfx_scene_aabb_debug::AabbRender::new(&mut factory).unwrap();
 
-        let render = Renderer::new(sched);
+        let render = render_data::renderer(sched);
 
         (render.clone(),
          RendererSystem {
