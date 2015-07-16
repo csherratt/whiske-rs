@@ -5,7 +5,7 @@ extern crate snowstorm;
 #[macro_use(router)]
 extern crate entity;
 extern crate cgmath;
-
+/*
 use std::collections::HashMap;
 use entity::*;
 use parent::{parent, Parent, ParentInput};
@@ -169,3 +169,4 @@ fn dirty_count() {
     }
     drop(front);
 }
+*/

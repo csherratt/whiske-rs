@@ -58,7 +58,6 @@ impl<M, D> SystemHandle<M, D>
     where M: Send + Sync,
           D: Send + Sync
 {
-
     /// Flush all changes and try and fetch the next update for this system
     /// Returns true of the system was updated, false if it was not
     pub fn next_frame(&mut self) -> bool {
@@ -80,6 +79,20 @@ impl<M, D> SystemHandle<M, D>
         };
 
         true
+    }
+
+    /// Flush all changes and try and fetch the next update for this system
+    /// Returns true of the system was updated, false if it was not
+    pub fn next_frame_async(self) -> shared_future::Future<SystemHandle<M, D>> {
+        match self.0 {
+            HandleState::Sync{data, channel, next} => {
+                drop((data, channel));
+                return next;
+            }
+            HandleState::Updating => {
+                unreachable!()
+            }
+        };
     }
 
     /// Sends a message with to the system via the included channel
