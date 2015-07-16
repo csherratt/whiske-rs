@@ -229,5 +229,4 @@ pub fn scene(sched: &mut Schedule, mut parents: ParentOutput) -> SceneSystem {
     handle
 }
 
-
 pub type SceneSystem = system::SystemHandle<Message, SceneData>;

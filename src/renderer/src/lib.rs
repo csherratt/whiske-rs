@@ -33,16 +33,14 @@ extern crate vr;
 mod render_data;
 
 use std::collections::{HashMap, HashSet};
-use snowstorm::channel;
-use transform::{Solved, TransformOutput};
+use transform::TransformSystem;
 use graphics::{
     Graphics, Texture, Geometry,
     Pos, PosTex, PosNorm, PosTexNorm,
 };
 use scene::{Scene, SceneSystem};
 use engine::Window;
-use pulse::{Signal, SelectMap, Signals};
-use entity::{Entity, Operation};
+use entity::Entity;
 
 use gfx::{
     Mesh, handle, BufferRole, Factory,
@@ -72,9 +70,8 @@ pub struct RendererSystem<R: Resources, C: gfx::CommandBuffer<R>, D: gfx::Device
 
     //data
     graphics: graphics::Graphics,
-    transform_input: TransformOutput,
+    transform: TransformSystem,
     scenes: SceneSystem,
-    position: Position,
     bounding: bounding::Bounding,
     vertex: HashMap<Entity, (Mesh<R>, Option<handle::Buffer<R, u32>>)>,
     materials: HashMap<graphics::Material, Material<R>>,
@@ -100,7 +97,6 @@ pub struct RendererSystem<R: Resources, C: gfx::CommandBuffer<R>, D: gfx::Device
     phantom: std::marker::PhantomData<C>
 }
 
-pub struct Position(pub HashMap<Entity, Solved>);
 
 pub struct MaterializedCamera {
     transform: AffineMatrix3<f32>,
@@ -179,11 +175,11 @@ impl<R, C, D, F> AbstractScene<R> for RendererSystem<R, C, D, F>
 
             match (self.geometry_slice.get(&draw.0),
                    self.materials.get(&(draw.1)),
-                   self.position.0.get(&eid)) {
+                   self.transform.world(*eid)) {
                 (Some(a), Some(b), Some(c)) => {
                     Some(MaterializedEntity{
                         aabb: self.bounding.aabb[&draw.0],
-                        transform: AffineMatrix3{mat: c.0.into()},
+                        transform: AffineMatrix3{mat: (*c).into()},
                         mesh: a.mesh.clone(),
                         fragments: [gfx_scene::Fragment{
                             material: b.clone(),
@@ -281,7 +277,7 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, D
     #[cfg(not(feature="virtual_reality"))]
     pub fn new(sched: &mut fibe::Schedule,
                graphics: Graphics,
-               position: TransformOutput,
+               transform: TransformSystem,
                scene: SceneSystem,
                bounding: bounding::Bounding,
                ra: engine::RenderArgs<Device, F>) -> (Renderer, RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device, F>) {
@@ -326,8 +322,7 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, D
             device: device,
             factory: factory,
             graphics: graphics,
-            transform_input: position,
-            position: Position(HashMap::new()),
+            transform: transform,
             vertex: HashMap::new(),
             materials: HashMap::new(),
             geometry_slice: HashMap::new(),
@@ -488,18 +483,6 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
         });
     }
 
-    fn sync_position(&mut self) -> Option<Signal> {
-        for msg in self.transform_input.copy_iter(false) {
-            msg.write(&mut self.position.0);
-        }
-
-        if self.transform_input.closed() {
-            None
-        } else {
-            Some(self.transform_input.signal())
-        }
-    }
-
     fn sync(&mut self) {
         let _g = hprof::enter("graphics-fetch");
         self.graphics.next_frame();
@@ -558,20 +541,9 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
         self.scenes.next_frame();
         drop(_g);
 
-        let _g = hprof::enter("select");
-        let mut select: SelectMap<fn(&mut RendererSystem<R, C, D, F>) -> Option<Signal>> = SelectMap::new();
-        select.add(self.transform_input.signal(), RendererSystem::sync_position);
-
-        while let Some((_, cb)) = select.next() {
-            if let Some(s) = cb(self) {
-                select.add(s, cb);
-            }
-        }
-
-        self.transform_input.next_frame();
+        let _g = hprof::enter("transform-fetch");
+        self.transform.next_frame();
         drop(_g);
-
-
 
         let _g = hprof::enter("bounding-fetch");
         self.bounding.next_frame();
@@ -655,9 +627,9 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
             if let Some(c) = self.render.cameras.get(&cid) {
                 Some((MaterializedCamera {
                     projection: c.0.clone().into(),
-                    transform: self.position.0
-                                   .get(&cid)
-                                   .map(|x| AffineMatrix3{mat: x.0.into()})
+                    transform: self.transform
+                                   .world(cid)
+                                   .map(|&x| AffineMatrix3{mat: x.into()})
                                    .unwrap_or_else(|| AffineMatrix3::identity())
                 }, c.1))
             } else {

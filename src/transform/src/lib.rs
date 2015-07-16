@@ -4,78 +4,83 @@ extern crate snowstorm;
 extern crate entity;
 extern crate cgmath;
 extern crate pulse;
+extern crate system;
 
 use std::collections::{HashMap, HashSet};
-use pulse::{SelectMap, Signals, Signal};
 use entity::*;
 use parent::{parent, Parent, ParentOutput};
 use fibe::*;
 use snowstorm::channel::*;
 use cgmath::*;
 
-struct TransformSystem {
-    // Inputs
-    delta: Receiver<Operation<Entity, Delta>>,
-    parent: ParentOutput,
+type Message = Operation<Entity, Delta>;
 
-    // output
-    output: Sender<Operation<Entity, Solved>>,
-
+#[derive(Clone)]
+pub struct TransformData {
     // child mappings
     child_to_parent: HashMap<Entity, Entity>,
     parent_to_child: HashMap<Entity, HashSet<Entity>>,
 
     // All entities that need to be updated 
-    dirty: HashSet<Entity>,
-
     deltas: HashMap<Entity, Decomposed<f32, Vector3<f32>, Quaternion<f32>>>,
+    solved: HashMap<Entity, Decomposed<f32, Vector3<f32>, Quaternion<f32>>>
 }
 
 // Recursively adds all eid + all children of eid to the dirty set
-fn mark_dirty(dirty: &mut HashSet<Entity>,
+fn mark_dirty(solved: &mut HashMap<Entity, Decomposed<f32, Vector3<f32>, Quaternion<f32>>>,
               parent_to_child: &HashMap<Entity, HashSet<Entity>>,
               eid: Entity) {
 
-    dirty.insert(eid);
+    solved.remove(&eid);
     if let Some(children) = parent_to_child.get(&eid).map(|x| x.clone()) {
         for &child in children.iter() {
-            mark_dirty(dirty, parent_to_child, child);
+            mark_dirty(solved, parent_to_child, child);
         }
     }   
 }
 
-impl TransformSystem {
-    fn handle_delta(&mut self) -> Option<Signal> {
-        while let Some(op) = self.delta.try_recv().map(|x| x.clone()) {
-            match op {
-                Operation::Delete(ref eid) => {
-                    self.deltas.remove(eid);
-                }
-                Operation::Upsert(eid, Delta(pos)) => {
-                    self.deltas.insert(eid, pos);
-                    mark_dirty(&mut self.dirty, &self.parent_to_child, eid);
-                }
-            }
-        }
+impl TransformData {
+    /// Get the world Trasform from the entity
+    pub fn local(&self, eid: Entity) -> Option<&Decomposed<f32, Vector3<f32>, Quaternion<f32>>> {
+        self.deltas.get(&eid)
+    }
 
-        if self.delta.closed() {
-            None
-        } else {
-            Some(self.delta.signal())
+    /// Get the world Trasform from the entity
+    pub fn world(&self, eid: Entity) -> Option<&Decomposed<f32, Vector3<f32>, Quaternion<f32>>> {
+        self.solved.get(&eid)
+    }
+
+    fn new() -> TransformData {
+        TransformData {
+            child_to_parent: HashMap::new(),
+            parent_to_child: HashMap::new(),
+            deltas: HashMap::new(),
+            solved: HashMap::new()
         }
     }
 
-    fn handle_parent(&mut self) -> Option<Signal> {
-        while let Some(op) = self.parent.try_recv() {
+    fn apply_ingest(&mut self, msg: &[Message]) {
+        for op in msg.iter() {
             match op {
                 &Operation::Delete(ref eid) => {
-                    let found = self.deltas.remove(eid);
-                    self.dirty.remove(eid);
+                    self.deltas.remove(eid);
+                }
+                &Operation::Upsert(eid, Delta(pos)) => {
+                    self.deltas.insert(eid, pos);
+                    mark_dirty(&mut self.solved, &self.parent_to_child, eid);
+                }
+            }
+        }
+    }
+
+    fn apply_parent(&mut self, msg: &[parent::Message]) {
+        for op in msg.iter() {
+            match op {
+                &Operation::Delete(ref eid) => {
+                    self.deltas.remove(eid);
+                    self.solved.remove(eid);
                     self.child_to_parent.remove(eid);
                     self.parent_to_child.remove(eid);
-                    if found.is_some() {
-                        eid.delete(&mut self.output);
-                    }
                 }
                 &Operation::Upsert(eid, Parent::Child(parent)) => {
                     self.child_to_parent.insert(eid, parent);
@@ -83,62 +88,43 @@ impl TransformSystem {
                         .entry(parent)
                         .or_insert_with(|| HashSet::new())
                         .insert(eid);
-                    self.dirty.insert(eid);
+                    self.solved.remove(&eid);
                 }
                 &Operation::Upsert(_, Parent::Root) => ()
             }
         }
-
-        if self.parent.closed() {
-            None
-        } else {
-            Some(self.delta.signal())
-        }
-    }
-
-    fn solve(&self, eid: Entity) -> Decomposed<f32, Vector3<f32>, Quaternion<f32>> {
-        // check to see if I have a parent
-        let parent = self.child_to_parent.get(&eid)
-            .map(|&parent| self.solve(parent))
-            .unwrap_or_else(|| Decomposed::identity());
-
-        let mat: Decomposed<f32, Vector3<f32>, Quaternion<f32>> =
-            self.deltas.get(&eid)
-                       .map(|x| *x)
-                       .expect("Expected delta, but none found")
-                       .into();
-
-        parent.concat(&mat)
     }
 
     fn update(&mut self) {
-        for dirty in self.dirty.iter() {
-            let solved = self.solve(*dirty);
-            dirty.bind(Solved(solved)).write(&mut self.output);
-        }
-        self.dirty.clear();
-    }
+        fn solve (c2p: &HashMap<Entity, Entity>,
+                  deltas: &HashMap<Entity, Decomposed<f32, Vector3<f32>, Quaternion<f32>>>,
+                  solved: &mut HashMap<Entity, Decomposed<f32, Vector3<f32>, Quaternion<f32>>>,
+                  eid: Entity) ->  Decomposed<f32, Vector3<f32>, Quaternion<f32>> {
 
-    fn run(&mut self) {
-        let mut select: SelectMap<fn(&mut TransformSystem) -> Option<Signal>> = SelectMap::new();
-
-        loop {
-            select.add(self.delta.signal(), TransformSystem::handle_delta);
-            select.add(self.parent.signal(), TransformSystem::handle_parent);
-
-            while let Some((_, cb)) = select.next() {
-                if let Some(sig) = cb(self) {
-                    select.add(sig, cb);
-                }
+            if let Some(v) = solved.get(&eid) {
+                return *v;
             }
 
-            self.update();
-
-            if self.delta.next_frame() && self.parent.next_frame() {
-                self.output.next_frame();
+            // check to see if I have a parent
+            let parent = if let Some(parent) = c2p.get(&eid).map(|x| *x) {
+                solve(c2p, deltas, solved, parent)
             } else {
-                return;
-            }
+                Decomposed::identity()
+            };
+
+            let mat: Decomposed<f32, Vector3<f32>, Quaternion<f32>> =
+                deltas.get(&eid)
+                      .map(|x| *x)
+                      .expect("Expected delta, but none found")
+                      .into();
+
+            let v = parent.concat(&mat);
+            solved.insert(eid, v);
+            v            
+        };
+
+        for (eid, _) in self.deltas.iter() {
+            solve(&self.child_to_parent, &self.deltas, &mut self.solved, *eid);
         }
     }
 }
@@ -155,69 +141,60 @@ impl Solved {
     }
 }
 
-pub fn transform(sched: &mut Schedule,
-                 parent: ParentOutput) -> (TransformInput, TransformOutput) {
-
-    let (tx, output) = channel();
-    let (delta_input, delta) = channel();
-
-    let mut system = TransformSystem {
-        delta: delta,
-        parent: parent,
-        output: tx,
-        child_to_parent: HashMap::new(),
-        parent_to_child: HashMap::new(),
-        dirty: HashSet::new(),
-        deltas: HashMap::new()
-    };
-    task(move |_| system.run()).start(sched);
-
-    (TransformInput(delta_input), TransformOutput(output))
-}
-
-/// A channel to send infromation to the Transform System
-#[derive(Clone)]
-pub struct TransformInput(Sender<Operation<Entity, Delta>>);
-
-impl TransformInput {
-    pub fn next_frame(&mut self) {
-        self.0.next_frame()
+// Reads from the parent channel
+fn sync_parent(parents: &mut ParentOutput) -> Vec<parent::Message> {
+    let mut msgs: Vec<parent::Message> = Vec::new();
+    while let Ok(op) = parents.recv() {
+        msgs.push(*op);
     }
+    msgs
 }
 
-impl entity::WriteEntity<Entity, Delta> for TransformInput {
+// Reads from the parent channel
+fn sync_ingest(ingest: &mut system::channel::Receiver<Message>) -> Vec<Message> {
+    let mut msgs: Vec<Message> = Vec::new();
+    while let Ok(op) = ingest.recv() {
+        msgs.push(*op);
+    }
+    msgs
+}
+
+pub fn transform(sched: &mut Schedule, mut parents: ParentOutput) -> TransformSystem {
+    let td = TransformData::new();
+    let (mut system, handle) = system::System::new(td.clone(), td);
+
+    let mut lpmsgs = Vec::new();
+    let mut limsgs = Vec::new();
+
+    task(move |_| {
+        loop {
+            let p = &mut parents;
+            system = system.update(|mut transform, _, mut msgs| {
+                let pmsgs = sync_parent(p);
+                p.next_frame();
+                let imsgs = sync_ingest(&mut msgs);
+
+                transform.apply_parent(&lpmsgs[..]);
+                transform.apply_ingest(&limsgs[..]);
+                transform.apply_parent(&pmsgs[..]);
+                transform.apply_ingest(&imsgs[..]);
+
+                transform.update();
+
+                lpmsgs = pmsgs;
+                limsgs = imsgs;
+                transform
+            });
+        }
+    }).start(sched);
+
+    handle
+}
+
+impl entity::WriteEntity<Entity, Delta> for TransformSystem {
     fn write(&mut self, eid: Entity, delta: Delta) {
-        self.0.write(eid, delta);
+        self.send(Operation::Upsert(eid, delta));
     }
 }
 
-#[derive(Clone)]
-pub struct TransformOutput(Receiver<Operation<Entity, Solved>>);
-
-impl TransformOutput {
-    pub fn recv(&mut self) -> Result<&entity::Operation<entity::Entity, Solved>, snowstorm::channel::ReceiverError> {
-        self.0.recv()
-    }
-
-    pub fn try_recv(&mut self) -> Option<&entity::Operation<entity::Entity, Solved>> {
-        self.0.try_recv()
-    }
-
-    pub fn closed(&mut self) -> bool {
-        self.0.closed()
-    }
-
-    pub fn next_frame(&mut self) -> bool {
-        self.0.next_frame()
-    }
-
-    pub fn copy_iter<'a>(&'a mut self, block: bool) -> CopyIter<'a, entity::Operation<entity::Entity, Solved>> {
-        self.0.copy_iter(block)
-    }
-}
-
-impl Signals for TransformOutput {
-    fn signal(&self) -> Signal {
-        self.0.signal()
-    }
-}
+pub type TransformSystem = system::SystemHandle<Message, TransformData>;

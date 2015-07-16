@@ -24,7 +24,7 @@ use renderer::{DrawBinding, Camera, Primary, Renderer, DebugText};
 use scene::Scene;
 use cgmath::{Decomposed, Transform, PerspectiveFov};
 use future_pulse::Future;
-use transform::TransformInput;
+use transform::TransformSystem;
 
 use entity::Entity;
 use transform::Delta;
@@ -41,7 +41,7 @@ router!{
         [Entity, Camera] |
         [Entity, DebugText] |
         [Entity, Primary] => renderer: Renderer,
-        [Entity, Delta] => transform: TransformInput,
+        [Entity, Delta] => transform: TransformSystem,
         [Entity, Scene] |
         [Scene, Entity] => scene: scene::SceneSystem,
         [Entity, Parent] => parent: ParentInput
@@ -62,15 +62,16 @@ fn main() {
     let mut engine = engine::Engine::new();
     let (pinput, poutput) = parent::parent(engine.sched());
     let sscene = scene::scene(engine.sched(), poutput.clone());
-    let (tinput, toutput) = transform::transform(engine.sched(), poutput.clone());
+    let transform = transform::transform(engine.sched(), poutput.clone());
     let graphics = graphics::Graphics::new(engine.sched());
 
     let bound = bounding::Bounding::new(engine.sched(), graphics.clone());
 
+    let t = transform.clone();
     let s = sscene.clone();
     let (read, set) = Future::new();
     engine.start_render(|sched, ra|{
-        let (input, mut renderer) = renderer::RendererSystem::new(sched, graphics.clone(), toutput, s, bound, ra);
+        let (input, mut renderer) = renderer::RendererSystem::new(sched, graphics.clone(), t, s, bound, ra);
         set.set(input);
         Box::new(move |sched, stream| {
             renderer.draw(sched, stream);
@@ -80,7 +81,7 @@ fn main() {
     let mut sink = Router {
         graphics: graphics,
         renderer: read.get(),
-        transform: tinput,
+        transform: transform,
         scene: sscene,
         parent: pinput
     };

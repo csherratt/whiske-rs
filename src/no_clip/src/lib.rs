@@ -12,7 +12,7 @@ extern crate camera;
 use std::f32;
 use entity::Entity;
 use glfw::{WindowEvent, Key, Action};
-use transform::{TransformInput, Delta};
+use transform::{TransformSystem, Delta};
 use snowstorm::channel::Receiver;
 use fibe::{Schedule, task};
 use cgmath::{Decomposed, Quaternion, Vector3, rad, Rotation3, Angle};
@@ -21,7 +21,7 @@ pub fn no_clip(sched: &mut Schedule,
                entity: Entity,
                mut last: Decomposed<f32, Vector3<f32>, Quaternion<f32>>,
                mut input: Receiver<WindowEvent>,
-               mut output: TransformInput) {
+               mut output: TransformSystem) {
     
     let mut speed_foward = 0.;
     let mut speed_right = 0.;
