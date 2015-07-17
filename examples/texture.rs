@@ -18,7 +18,7 @@ use graphics::{
     Vertex, VertexBuffer, Geometry, Texture, Kd,
     Material, MaterialComponent, GeometryData
 };
-use parent::{Parent, ParentInput};
+use parent::{Parent, ParentSystem};
 use renderer::{DrawBinding, Camera, Primary, Renderer};
 use scene::Scene;
 use cgmath::{Decomposed, Transform, PerspectiveFov, Quaternion, Vector3};
@@ -40,7 +40,7 @@ router!{
         [Entity, Delta] => transform: TransformSystem,
         [Entity, Scene] |
         [Scene, Entity] => scene: scene::SceneSystem,
-        [Entity, Parent] => parent: ParentInput
+        [Entity, Parent] => parent: ParentSystem
     }
 }
 
@@ -56,9 +56,9 @@ impl Router {
 
 fn main() {
     let mut engine = engine::Engine::new();
-    let (pinput, poutput) = parent::parent(engine.sched());
-    let sscene = scene::scene(engine.sched(), poutput.clone());
-    let transform = transform::transform(engine.sched(), poutput.clone());
+    let parent = parent::parent(engine.sched());
+    let sscene = scene::scene(engine.sched(), parent.clone());
+    let transform = transform::transform(engine.sched(), parent.clone());
     let graphics = graphics::Graphics::new(engine.sched());
 
     let bound = bounding::Bounding::new(engine.sched(), graphics.clone());
@@ -79,7 +79,7 @@ fn main() {
         renderer: read.get(),
         transform: transform,
         scene: sscene,
-        parent: pinput
+        parent: parent
     };
 
     let scene = Scene::new();

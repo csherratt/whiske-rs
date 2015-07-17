@@ -1,4 +1,4 @@
-extern crate parent;
+/*extern crate parent;
 extern crate fibe;
 extern crate entity;
 
@@ -92,3 +92,4 @@ fn huge_number_of_children() {
         assert_eq!(hm.get(child), None);
     }
 }
+*/

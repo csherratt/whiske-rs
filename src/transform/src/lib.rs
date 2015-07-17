@@ -17,10 +17,6 @@ type Message = Operation<Entity, Delta>;
 
 #[derive(Clone)]
 pub struct TransformData {
-    // child mappings
-    child_to_parent: HashMap<Entity, Entity>,
-    parent_to_child: HashMap<Entity, HashSet<Entity>>,
-
     // All entities that need to be updated 
     deltas: HashMap<Entity, Decomposed<f32, Vector3<f32>, Quaternion<f32>>>,
     solved: HashMap<Entity, Decomposed<f32, Vector3<f32>, Quaternion<f32>>>
@@ -28,13 +24,13 @@ pub struct TransformData {
 
 // Recursively adds all eid + all children of eid to the dirty set
 fn mark_dirty(solved: &mut HashMap<Entity, Decomposed<f32, Vector3<f32>, Quaternion<f32>>>,
-              parent_to_child: &HashMap<Entity, HashSet<Entity>>,
+              parent: &ParentSystem,
               eid: Entity) {
 
     solved.remove(&eid);
-    if let Some(children) = parent_to_child.get(&eid).map(|x| x.clone()) {
+    if let Some(children) = parent.parent_to_children.get(&eid).map(|x| x.clone()) {
         for &child in children.iter() {
-            mark_dirty(solved, parent_to_child, child);
+            mark_dirty(solved, parent, child);
         }
     }   
 }
@@ -52,14 +48,12 @@ impl TransformData {
 
     fn new() -> TransformData {
         TransformData {
-            child_to_parent: HashMap::new(),
-            parent_to_child: HashMap::new(),
             deltas: HashMap::new(),
             solved: HashMap::new()
         }
     }
 
-    fn apply_ingest(&mut self, msg: &[Message]) {
+    fn apply_ingest(&mut self, parent: &ParentSystem, msg: &[Message]) {
         for op in msg.iter() {
             match op {
                 &Operation::Delete(ref eid) => {
@@ -67,36 +61,30 @@ impl TransformData {
                 }
                 &Operation::Upsert(eid, Delta(pos)) => {
                     self.deltas.insert(eid, pos);
-                    mark_dirty(&mut self.solved, &self.parent_to_child, eid);
+                    mark_dirty(&mut self.solved, parent, eid);
                 }
             }
         }
     }
 
-    fn apply_parent(&mut self, msg: &[parent::Message]) {
-        for op in msg.iter() {
-            match op {
-                &Operation::Delete(ref eid) => {
-                    self.deltas.remove(eid);
-                    self.solved.remove(eid);
-                    self.child_to_parent.remove(eid);
-                    self.parent_to_child.remove(eid);
-                }
-                &Operation::Upsert(eid, Parent::Child(parent)) => {
-                    self.child_to_parent.insert(eid, parent);
-                    self.parent_to_child
-                        .entry(parent)
-                        .or_insert_with(|| HashSet::new())
-                        .insert(eid);
-                    self.solved.remove(&eid);
-                }
-                &Operation::Upsert(_, Parent::Root) => ()
+    fn delete(&mut self, msg: &HashSet<Entity>) {
+        for eid in msg.iter() {
+            self.deltas.remove(eid);
+            self.solved.remove(eid);
+        }
+    }
+
+    fn invalidate(&mut self, parent: &ParentSystem, msg: &HashSet<Entity>) {
+        for eid in msg.iter() {
+            self.solved.remove(eid);
+            if let Some(children) = parent.parent_to_children.get(eid) {
+                self.invalidate(parent, children);
             }
         }
     }
 
-    fn update(&mut self) {
-        fn solve (c2p: &HashMap<Entity, Entity>,
+    fn update(&mut self, parent: &ParentSystem) {
+        fn solve (parent: &ParentSystem,
                   deltas: &HashMap<Entity, Decomposed<f32, Vector3<f32>, Quaternion<f32>>>,
                   solved: &mut HashMap<Entity, Decomposed<f32, Vector3<f32>, Quaternion<f32>>>,
                   eid: Entity) ->  Decomposed<f32, Vector3<f32>, Quaternion<f32>> {
@@ -106,8 +94,8 @@ impl TransformData {
             }
 
             // check to see if I have a parent
-            let parent = if let Some(parent) = c2p.get(&eid).map(|x| *x) {
-                solve(c2p, deltas, solved, parent)
+            let parent = if let Some(p) = parent.child_to_parent.get(&eid).map(|x| *x) {
+                solve(parent, deltas, solved, p)
             } else {
                 Decomposed::identity()
             };
@@ -124,7 +112,7 @@ impl TransformData {
         };
 
         for (eid, _) in self.deltas.iter() {
-            solve(&self.child_to_parent, &self.deltas, &mut self.solved, *eid);
+            solve(parent, &self.deltas, &mut self.solved, *eid);
         }
     }
 }
@@ -142,15 +130,6 @@ impl Solved {
 }
 
 // Reads from the parent channel
-fn sync_parent(parents: &mut ParentOutput) -> Vec<parent::Message> {
-    let mut msgs: Vec<parent::Message> = Vec::new();
-    while let Ok(op) = parents.recv() {
-        msgs.push(*op);
-    }
-    msgs
-}
-
-// Reads from the parent channel
 fn sync_ingest(ingest: &mut system::channel::Receiver<Message>) -> Vec<Message> {
     let mut msgs: Vec<Message> = Vec::new();
     while let Ok(op) = ingest.recv() {
@@ -159,29 +138,31 @@ fn sync_ingest(ingest: &mut system::channel::Receiver<Message>) -> Vec<Message> 
     msgs
 }
 
-pub fn transform(sched: &mut Schedule, mut parents: ParentOutput) -> TransformSystem {
+pub fn transform(sched: &mut Schedule, mut parents: ParentSystem) -> TransformSystem {
     let td = TransformData::new();
     let (mut system, handle) = system::System::new(td.clone(), td);
 
-    let mut lpmsgs = Vec::new();
     let mut limsgs = Vec::new();
 
     task(move |_| {
         loop {
             let p = &mut parents;
             system = system.update(|mut transform, _, mut msgs| {
-                let pmsgs = sync_parent(p);
+                let mut deleted = p.deleted.clone();
+                let mut invalidate = p.modified.clone();
                 p.next_frame();
+                for p in p.deleted.iter() { deleted.insert(*p); }
+                for p in p.modified.iter() { invalidate.insert(*p); }
+
                 let imsgs = sync_ingest(&mut msgs);
 
-                transform.apply_parent(&lpmsgs[..]);
-                transform.apply_ingest(&limsgs[..]);
-                transform.apply_parent(&pmsgs[..]);
-                transform.apply_ingest(&imsgs[..]);
+                transform.apply_ingest(p, &limsgs[..]);
+                transform.apply_ingest(p, &imsgs[..]);
+                transform.delete(&deleted);
+                transform.invalidate(p, &invalidate);
 
-                transform.update();
+                transform.update(p);
 
-                lpmsgs = pmsgs;
                 limsgs = imsgs;
                 transform
             });

@@ -22,7 +22,7 @@ pub struct ParentData {
     pub deleted: HashSet<Entity>,
 
     // Entities that's parent was changed during the last update
-    pub new_parent: HashSet<Entity>
+    pub modified: HashSet<Entity>
 }
 
 impl ParentData {
@@ -31,7 +31,7 @@ impl ParentData {
             child_to_parent: HashMap::new(),
             parent_to_children: HashMap::new(),
             deleted: HashSet::new(),
-            new_parent: HashSet::new()
+            modified: HashSet::new()
         }
     }
 
@@ -42,7 +42,7 @@ impl ParentData {
             .entry(parent)
             .or_insert_with(HashSet::new)
             .insert(child);
-        self.new_parent.insert(child);
+        self.modified.insert(child);
     }
 
     /// Recessively delete the children of a parent
@@ -74,7 +74,7 @@ impl ParentData {
 
     fn apply_parent(&mut self, msgs: &[Message]) {
         self.deleted.clear();
-        self.new_parent.clear();
+        self.modified.clear();
 
         for &m in msgs {
             self.write(m);
