@@ -6,9 +6,9 @@ extern crate lease;
 extern crate system;
 
 use std::collections::{HashSet, HashMap};
-use entity::{Entity, Operation, DeleteEntity};
+use entity::{Entity, DeleteEntity};
 use fibe::{task, Schedule};
-use parent::{Parent, ParentOutput};
+use parent::ParentSystem;
 
 /// This holds an abstract of a scene
 ///     A scene may have 0-N children. The children are `bound` to it.
@@ -34,18 +34,6 @@ pub struct SceneData {
 
     // entity has x in its scene
     contains: HashMap<Entity, HashSet<Entity>>,
-
-    // lookup table to find the children from the parent's eid
-    parent_to_children: HashMap<Entity, HashSet<Entity>>
-}
-
-// Reads from the parent channel
-fn sync_parent(parents: &mut ParentOutput) -> Vec<parent::Message> {
-    let mut msgs: Vec<parent::Message> = Vec::new();
-    while let Ok(op) = parents.recv() {
-        msgs.push(*op);
-    }
-    msgs
 }
 
 // Reads from the parent channel
@@ -68,45 +56,28 @@ impl SceneData {
             parent_mesages: Vec::new(),
             belongs_to: HashMap::new(),
             contains: HashMap::new(),
-            parent_to_children: HashMap::new()
         }
     }
 
-    fn apply_parent(&mut self, msgs: &[parent::Message]) {
-        for op in msgs.iter() {
-            match op {
-                &Operation::Upsert(ref parent, Parent::Child(child)) => {
-                    self.parent_to_children
-                        .get_mut(parent)
-                        .unwrap()
-                        .insert(child);
-                }
-                &Operation::Upsert(parent, Parent::Root) => {
-                    self.parent_to_children
-                        .insert(parent, HashSet::new());
-                }
-                &Operation::Delete(eid) => {
-                    // A scene is deleted, we need to tell the downstream
-                    // as a series of unbinds
-                    if let Some(children) = self.contains.remove(&eid) {
-                        for cid in children.into_iter() {
-                            if let Some(belongs) = self.belongs_to.get_mut(&cid) {
-                                belongs.remove(&eid);
-                            }
-                        }                        
+    fn delete(&mut self, msgs: &HashSet<Entity>) {
+        for eid in msgs.iter() {
+            // A scene is deleted, we need to tell the downstream
+            // as a series of unbinds
+            if let Some(children) = self.contains.remove(&eid) {
+                for cid in children.into_iter() {
+                    if let Some(belongs) = self.belongs_to.get_mut(&cid) {
+                        belongs.remove(&eid);
                     }
+                }                        
+            }
 
-                    // remove all the bindings that the child may have been in
-                    if let Some(parents) = self.belongs_to.remove(&eid) {
-                        for pid in parents.into_iter() {
-                            if let Some(contains) = self.contains.get_mut(&pid) {
-                                contains.remove(&eid);
-                            }
-                        }     
+            // remove all the bindings that the child may have been in
+            if let Some(parents) = self.belongs_to.remove(&eid) {
+                for pid in parents.into_iter() {
+                    if let Some(contains) = self.contains.get_mut(&pid) {
+                        contains.remove(&eid);
                     }
-
-                    self.parent_to_children.remove(&eid);
-                }
+                }     
             }
         }
     }
@@ -199,27 +170,25 @@ impl entity::WriteEntity<Scene, Entity> for SceneSystem {
 ///
 /// This will supply a SceneSystem for communication
 /// into and out of the system.
-pub fn scene(sched: &mut Schedule, mut parents: ParentOutput) -> SceneSystem {
+pub fn scene(sched: &mut Schedule, mut parents: ParentSystem) -> SceneSystem {
     let sd = SceneData::new();
     let (mut system, handle) = system::System::new(sd.clone(), sd);
 
-    let mut lpmsgs = Vec::new();
     let mut limsgs = Vec::new();
 
     task(move |_| {
         loop {
             let p = &mut parents;
             system = system.update(|mut scene, _, mut msgs| {
-                let pmsgs = sync_parent(p);
+                let mut deleted = p.deleted.clone();
                 p.next_frame();
+                for &d in p.deleted.iter() { deleted.insert(d); }
                 let imsgs = sync_ingest(&mut msgs);
 
-                scene.apply_parent(&lpmsgs[..]);
                 scene.apply_ingest(&limsgs[..]);
-                scene.apply_parent(&pmsgs[..]);
                 scene.apply_ingest(&imsgs[..]);
+                scene.delete(&deleted);
 
-                lpmsgs = pmsgs;
                 limsgs = imsgs;
                 scene
             });

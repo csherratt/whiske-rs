@@ -18,8 +18,11 @@ pub struct ParentData {
     /// lookup table to find the children from the parent's eid
     pub parent_to_children: HashMap<Entity, HashSet<Entity>>,
 
-    // Set of deleted entities
+    // Set of deleted entities from the last updated
     pub deleted: HashSet<Entity>,
+
+    // Entities that's parent was changed during the last update
+    pub new_parent: HashSet<Entity>
 }
 
 impl ParentData {
@@ -27,7 +30,8 @@ impl ParentData {
         ParentData {
             child_to_parent: HashMap::new(),
             parent_to_children: HashMap::new(),
-            deleted: HashSet::new()
+            deleted: HashSet::new(),
+            new_parent: HashSet::new()
         }
     }
 
@@ -38,6 +42,7 @@ impl ParentData {
             .entry(parent)
             .or_insert_with(HashSet::new)
             .insert(child);
+        self.new_parent.insert(child);
     }
 
     /// Recessively delete the children of a parent
@@ -69,6 +74,8 @@ impl ParentData {
 
     fn apply_parent(&mut self, msgs: &[Message]) {
         self.deleted.clear();
+        self.new_parent.clear();
+
         for &m in msgs {
             self.write(m);
         }

@@ -8,7 +8,7 @@ extern crate system;
 
 use std::collections::{HashMap, HashSet};
 use entity::*;
-use parent::{parent, Parent, ParentOutput};
+use parent::{parent, ParentSystem};
 use fibe::*;
 use snowstorm::channel::*;
 use cgmath::*;
