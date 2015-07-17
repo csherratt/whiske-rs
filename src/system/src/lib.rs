@@ -2,6 +2,7 @@
 extern crate lease;
 extern crate shared_future;
 extern crate snowstorm;
+extern crate entity;
 
 pub mod channel {
     pub use snowstorm::channel::*;
@@ -176,5 +177,15 @@ impl<M, D> System<M, D>
             set: nset,
             input: input
         }
+    }
+}
+
+impl<T, U, V> entity::DeleteEntity<T> for SystemHandle<entity::Operation<T, U>, V> 
+    where T: Send+Sync,
+          U: Send+Sync,
+          V: Send+Sync
+{
+    fn delete(&mut self, eid: T) {
+        self.send(entity::Operation::Delete(eid));
     }
 }
