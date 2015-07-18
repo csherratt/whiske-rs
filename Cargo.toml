@@ -60,6 +60,10 @@ version = "*"
 path = "src/system"
 version = "*"
 
+[dependencies.whiske-rs-animation]
+path = "src/animation"
+version = "*"
+
 
 [dev-dependencies]
 time="*"

@@ -1,11 +1,12 @@
 extern crate engine;
 extern crate snowstorm;
-extern crate glfw;
 extern crate fibe;
+extern crate glfw;
 
 use std::thread;
 use snowstorm::channel::*;
-use glfw::{WindowEvent, Context};
+use engine::event::WindowEvent;
+use glfw::Context;
 
 fn process_input(sched: &mut fibe::Schedule, index: u32, mut ch: Receiver<WindowEvent>) {
     loop {

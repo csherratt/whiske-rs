@@ -10,8 +10,11 @@ extern crate vr;
 #[cfg(feature="virtual_reality")]
 extern crate gfx_vr;
 
+pub mod event;
+use event::WindowEvent;
+
 use fibe::*;
-use glfw::{WindowEvent, Context};
+use glfw::{Context};
 
 pub use snowstorm::channel::*;
 
@@ -19,7 +22,7 @@ pub type Window<D, R> = gfx::extra::stream::OwnedStream<D, gfx_window_glfw::Outp
 
 pub struct Engine<D: gfx::Device, F, R: gfx::Resources> {
     glfw: glfw::Glfw,
-    events: std::sync::mpsc::Receiver<(f64, WindowEvent)>,
+    events: std::sync::mpsc::Receiver<(f64, glfw::WindowEvent)>,
     input: (Sender<WindowEvent>, Receiver<WindowEvent>),
     pool: fibe::Frontend,
     window: Window<D, R>,
@@ -165,12 +168,12 @@ impl<D, F, R> Engine<D, F, R>
             self.glfw.poll_events();
             for (_, event) in glfw::flush_messages(&self.events) {
                 match event {
-                    WindowEvent::Close => {
+                    glfw::WindowEvent::Close => {
                         run = false;
                     }
                     _ => ()
                 }
-                send.send(event);
+                send.send(WindowEvent::from_glfw(event));
             }
             send.next_frame();
             render(&mut self.pool, &mut self.window);

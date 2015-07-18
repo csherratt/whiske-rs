@@ -23,6 +23,9 @@ git = "https://github.com/whiske-rs/entity.git"
 [dependencies.snowstorm]
 git = "https://github.com/csherratt/snowstorm.git"
 
+[dependencies.whiske-rs-engine]
+path = "../engine"
+
 [dependencies.whiske-rs-transform]
 path = "../transform"
 

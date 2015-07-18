@@ -1,6 +1,5 @@
 
 
-extern crate glfw;
 extern crate snowstorm;
 extern crate transform;
 extern crate entity;
@@ -8,10 +7,11 @@ extern crate fibe;
 extern crate cgmath;
 extern crate pulse;
 extern crate camera;
+extern crate engine;
 
 use std::f32;
 use entity::Entity;
-use glfw::{WindowEvent, Key, Action};
+use engine::event::{WindowEvent, Key, Action};
 use transform::{TransformSystem, Delta};
 use snowstorm::channel::Receiver;
 use fibe::{Schedule, task};
