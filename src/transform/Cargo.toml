@@ -11,7 +11,7 @@ pulse="*"
 cgmath="*"
 
 [dependencies.entity]
-git = "https://github.com/csherratt/entity.git"
+git = "https://github.com/whiske-rs/entity.git"
 
 [dependencies.whiske-rs-parent]
 path = "../parent"
@@ -24,3 +24,6 @@ git = "https://github.com/csherratt/snowstorm.git"
 
 [dependencies.fibe]
 git = "https://github.com/slide-rs/fibe-rs.git"
+
+[dependencies.ordered_vec]
+git = "https://github.com/csherratt/ordered_vec.git"

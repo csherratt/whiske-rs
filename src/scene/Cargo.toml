@@ -13,7 +13,7 @@ pulse = "*"
 git = "https://github.com/slide-rs/fibe-rs"
 
 [dependencies.entity]
-git = "https://github.com/csherratt/entity"
+git = "https://github.com/whiske-rs/entity.git"
 
 [dependencies.whiske-rs-parent]
 path = "../parent"
@@ -29,3 +29,4 @@ git = "https://github.com/csherratt/lease.git"
 
 [dependencies.shared_future]
 git = "https://github.com/csherratt/shared_future.git"
+

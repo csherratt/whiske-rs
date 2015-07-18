@@ -14,7 +14,7 @@ git = "https://github.com/csherratt/snowstorm.git"
 git = "https://github.com/slide-rs/fibe-rs.git"
 
 [dependencies.entity]
-git = "https://github.com/csherratt/entity.git"
+git = "https://github.com/whiske-rs/entity.git"
 
 [dependencies.whiske-rs-engine]
 path = "src/engine"

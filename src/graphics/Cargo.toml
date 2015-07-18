@@ -12,7 +12,7 @@ gfx="*"
 image="*"
 
 [dependencies.entity]
-git = "https://github.com/csherratt/entity.git"
+git = "https://github.com/whiske-rs/entity.git"
 
 [dependencies.whiske-rs-parent]
 path = "../parent"

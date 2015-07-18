@@ -16,4 +16,4 @@ git = "https://github.com/csherratt/lease.git"
 git = "https://github.com/csherratt/shared_future.git"
 
 [dependencies.entity]
-git = "https://github.com/csherratt/entity.git"
+git = "https://github.com/whiske-rs/entity.git"

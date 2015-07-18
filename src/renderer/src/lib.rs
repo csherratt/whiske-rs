@@ -210,7 +210,7 @@ impl<R> AbstractScene<R> for RenderContext<R>
     }
 }
 
-impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device, F>
+impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer<gfx_device_gl::Resources>, Device, F>
     where F: gfx::Factory<gfx_device_gl::Resources>+Clone
 
 {
@@ -294,7 +294,7 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, D
                transform: TransformSystem,
                scenes: SceneSystem,
                bounding: bounding::Bounding,
-               ra: engine::RenderArgs<Device, F>) -> (Renderer, RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device, F>) {
+               ra: engine::RenderArgs<Device, F>) -> (Renderer, RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer<gfx_device_gl::Resources>, Device, F>) {
 
         use gfx::tex::WrapMode::Tile;
         let (device, mut factory) = (ra.device, ra.factory);

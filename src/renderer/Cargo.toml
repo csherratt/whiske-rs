@@ -23,7 +23,7 @@ genmesh="*"
 git = "https://github.com/csherratt/gfx_scene_aabb_debug"
 
 [dependencies.entity]
-git = "https://github.com/csherratt/entity.git"
+git = "https://github.com/whiske-rs/entity.git"
 
 [dependencies.whiske-rs-engine]
 path = "../engine"
