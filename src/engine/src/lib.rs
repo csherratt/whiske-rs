@@ -4,6 +4,7 @@ extern crate gfx;
 extern crate gfx_device_gl;
 extern crate gfx_window_glfw;
 extern crate glfw;
+extern crate time;
 
 #[cfg(feature="virtual_reality")]
 extern crate vr;
@@ -66,7 +67,7 @@ impl Engine<gfx_device_gl::Device,
 
         window.set_all_polling(true);
         window.make_current();
-        glfw.set_swap_interval(0);
+        glfw.set_swap_interval(1);
 
 
         let (stream, device, factory) = gfx_window_glfw::init(window);
@@ -162,6 +163,8 @@ impl<D, F, R> Engine<D, F, R>
         let (mut send, recv) = self.input;
         drop(recv);
 
+
+        let mut start = time::precise_time_s();
         let mut render = self.render.take().expect("no render installed!");
 
         while run {
@@ -175,6 +178,7 @@ impl<D, F, R> Engine<D, F, R>
                 }
                 send.send(WindowEvent::from_glfw(event));
             }
+            send.send(WindowEvent::TimeStamp(time::precise_time_s() - start));
             send.next_frame();
             render(&mut self.pool, &mut self.window);
         }

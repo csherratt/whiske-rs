@@ -25,6 +25,7 @@ gfx = "*"
 gfx_device_gl = "*"
 glfw = "*"
 gfx_window_glfw = "*"
+time = "*"
 
 [features]
 default = []
