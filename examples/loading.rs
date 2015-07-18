@@ -96,8 +96,7 @@ fn main() {
     let obj = obj_loader::load(engine.sched(), PathBuf::from(map), sink.graphics.clone());
     println!("Waiting for load");
     for (_, (g, m)) in obj.unwrap().get() {
-        let mut comp = Decomposed::identity();
-        comp.scale = 0.001;
+        let comp = Decomposed::identity();
         if let Some(m) = m {
             Entity::new()
                    .bind(DrawBinding(g, m))

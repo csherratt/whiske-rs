@@ -220,7 +220,7 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer<gf
                transform: TransformSystem,
                scenes: SceneSystem,
                bounding: bounding::Bounding,
-               ra: engine::RenderArgs<Device, F>) -> (Renderer, RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer, Device, F>) {
+               ra: engine::RenderArgs<Device, F>) -> (Renderer, RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer<gfx_device_gl::Resources>, Device, F>) {
 
         use gfx::tex::WrapMode::Tile;
 
