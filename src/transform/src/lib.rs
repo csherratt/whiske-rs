@@ -144,15 +144,12 @@ pub fn transform(sched: &mut Schedule, mut parents: ParentSystem) -> TransformSy
     let td = TransformData::new();
     let (mut system, handle) = system::System::new(td.clone(), td);
 
-    let mut limsgs = Vec::new();
-
     task(move |_| {
         loop {
             let p = &mut parents;
-            system = system.update(|mut transform, _, mut msgs| {
-                let mut invalidate = p.modified.clone();
+            system = system.update(|mut transform, old, mut msgs| {
                 p.next_frame();
-                for p in p.modified.iter() { invalidate.insert(*p); }
+                transform.clone_from(old);
 
                 let mut imsgs = sync_ingest(&mut msgs);
                 for &d in p.deleted.iter() {
@@ -160,12 +157,10 @@ pub fn transform(sched: &mut Schedule, mut parents: ParentSystem) -> TransformSy
                 }
                 imsgs.sort_by(|a, b| a.key().cmp(b.key()));
 
-                transform.apply_ingest(p, &limsgs[..]);
                 transform.apply_ingest(p, &imsgs[..]);
-                transform.invalidate(p, &invalidate);
+                transform.invalidate(p, &p.modified);
                 transform.update(p);
 
-                limsgs = imsgs;
                 transform
             });
         }
