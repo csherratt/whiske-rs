@@ -157,6 +157,11 @@ impl<D, F, R> Engine<D, F, R>
         &mut self.pool
     }
 
+    /// Get a copy of the input channel
+    pub fn input_channel(&self) -> InputChannel {
+        self.input.1.clone()
+    }
+
     /// run the engine
     pub fn run(mut self) {
         let mut run = true;
@@ -164,7 +169,7 @@ impl<D, F, R> Engine<D, F, R>
         drop(recv);
 
 
-        let mut start = time::precise_time_s();
+        let start = time::precise_time_s();
         let mut render = self.render.take().expect("no render installed!");
 
         while run {
@@ -184,3 +189,6 @@ impl<D, F, R> Engine<D, F, R>
         }
     }
 }
+
+// The input channel
+pub type InputChannel = Receiver<WindowEvent>;

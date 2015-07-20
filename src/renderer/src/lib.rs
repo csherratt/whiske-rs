@@ -730,7 +730,7 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
             window.present(&mut self.device);
             drop(_g);
             hprof::end_frame();
-            hprof::profiler().print_timing();
+            //hprof::profiler().print_timing();
 
             self.globals = Some(rc.globals);
             self.gfx_data = Some(rc.local);
