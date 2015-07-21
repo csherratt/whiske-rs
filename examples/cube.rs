@@ -5,7 +5,7 @@ extern crate transform;
 extern crate scene;
 extern crate graphics;
 extern crate parent;
-#[macro_use(router)]
+#[macro_use(route, router)]
 extern crate entity;
 extern crate future_pulse;
 extern crate no_clip;
@@ -31,20 +31,20 @@ use transform::Delta;
 
 router!{
     struct Router {
-        [VertexBuffer, Vertex] |
-        [VertexBuffer, Vec<u32>] |
-        [Material, MaterialComponent<[f32; 4]>] |
-        [Material, MaterialComponent<Texture>] |
-        [Texture, image::DynamicImage] |
-        [Geometry, GeometryData] => graphics: graphics::Graphics,
-        [Entity, DrawBinding] |
-        [Entity, Camera] |
-        [Entity, DebugText] |
-        [Entity, Primary] => renderer: Renderer,
-        [Entity, Delta] => transform: TransformSystem,
-        [Entity, Scene] |
-        [Scene, Entity] => scene: scene::SceneSystem,
-        [Entity, Parent] => parent: ParentSystem
+        [w: VertexBuffer, Vertex] |
+        [w: VertexBuffer, Vec<u32>] |
+        [w: Material, MaterialComponent<[f32; 4]>] |
+        [w: Material, MaterialComponent<Texture>] |
+        [w: Texture, image::DynamicImage] |
+        [w: Geometry, GeometryData] => graphics: graphics::Graphics,
+        [w: Entity, DrawBinding] |
+        [w: Entity, Camera] |
+        [w: Entity, DebugText] |
+        [w: Entity, Primary] => renderer: Renderer,
+        [w: Entity, Delta] => transform: TransformSystem,
+        [w: Entity, Scene] |
+        [w: Scene, Entity] => scene: scene::SceneSystem,
+        [w: Entity, Parent] => parent: ParentSystem
     }
 }
 
