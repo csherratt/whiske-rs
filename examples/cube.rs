@@ -27,7 +27,7 @@ use future_pulse::Future;
 use transform::TransformSystem;
 
 use entity::Entity;
-use transform::Delta;
+use transform::Local;
 
 router!{
     struct Router {
@@ -41,7 +41,7 @@ router!{
         [w: Entity, Camera] |
         [w: Entity, DebugText] |
         [w: Entity, Primary] => renderer: Renderer,
-        [w: Entity, Delta] => transform: TransformSystem,
+        [w: Entity, Local] => transform: TransformSystem,
         [w: Entity, Scene] |
         [w: Scene, Entity] => scene: scene::SceneSystem,
         [w: Entity, Parent] => parent: ParentSystem
@@ -102,7 +102,7 @@ fn main() {
         for (yi, y) in (-count..count).enumerate() {
             for (zi, z) in (-count..count).enumerate() {
 
-                let mut pos = Delta(Decomposed::identity());
+                let mut pos = Local(Decomposed::identity());
                 pos.0.disp.x = x as f32 * 5.;
                 pos.0.disp.y = y as f32 * 5.;
                 pos.0.disp.z = z as f32 * 5.;

@@ -30,7 +30,7 @@ use future_pulse::Future;
 use transform::TransformSystem;
 
 use entity::Entity;
-use transform::Delta;
+use transform::Local;
 
 router!{
     struct Router {
@@ -44,7 +44,7 @@ router!{
         [w: Entity, Camera] |
         [w: Entity, DebugText] |
         [w: Entity, Primary] => renderer: Renderer,
-        [w: Entity, Delta] => transform: TransformSystem,
+        [w: Entity, Local] => transform: TransformSystem,
         [w: Entity, Scene] |
         [w: Scene, Entity] => scene: scene::SceneSystem,
         [w: Entity, Parent] => parent: ParentSystem
@@ -101,7 +101,7 @@ fn main() {
             Entity::new()
                    .bind(DrawBinding(g, m))
                    .bind(scene)
-                   .bind(Delta(comp))
+                   .bind(Local(comp))
                    .write(&mut sink);
         }
     }

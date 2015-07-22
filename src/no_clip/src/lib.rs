@@ -12,7 +12,7 @@ extern crate engine;
 use std::f32;
 use entity::Entity;
 use engine::event::{WindowEvent, Key, Action};
-use transform::{TransformSystem, Delta};
+use transform::{TransformSystem, Local};
 use snowstorm::channel::Receiver;
 use fibe::{Schedule, task};
 use cgmath::{Decomposed, Quaternion, Vector3, rad, Rotation3, Angle};
@@ -92,7 +92,7 @@ pub fn no_clip(sched: &mut Schedule,
             last.disp.y = pos.y;
             last.disp.z = pos.z;
 
-            entity.bind(Delta(last)).write(&mut output);
+            entity.bind(Local(last)).write(&mut output);
 
             if !input.next_frame() {
                 return;

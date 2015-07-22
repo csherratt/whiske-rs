@@ -23,7 +23,7 @@ use renderer::{DrawBinding, Camera, Primary, Renderer};
 use scene::Scene;
 use cgmath::{Decomposed, Transform, PerspectiveFov, Quaternion, Vector3};
 use future_pulse::Future;
-use transform::{TransformSystem, Delta};
+use transform::{TransformSystem, Local};
 use entity::Entity;
 
 router!{
@@ -37,7 +37,7 @@ router!{
         [w: Entity, DrawBinding] |
         [w: Entity, Camera] |
         [w: Entity, Primary] => renderer: Renderer,
-        [w: Entity, Delta] => transform: TransformSystem,
+        [w: Entity, Local] => transform: TransformSystem,
         [w: Entity, Scene] |
         [w: Scene, Entity] => scene: scene::SceneSystem,
         [w: Entity, Parent] => parent: ParentSystem
@@ -101,7 +101,7 @@ fn main() {
     transform.disp.z = -1f32;
     Entity::new()
            .bind(DrawBinding(shapes.plane, logo_material))
-           .bind(Delta(transform))
+           .bind(Local(transform))
            .bind(scene)
            .write(&mut sink);
 
@@ -111,7 +111,7 @@ fn main() {
             msg.next_frame();
 
             camera.bind(Primary)
-                  .bind(Delta(Decomposed::identity()))
+                  .bind(Local(Decomposed::identity()))
                   .bind(Camera(
                     PerspectiveFov {
                         fovy: cgmath::deg(90.),

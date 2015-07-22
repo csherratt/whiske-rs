@@ -29,7 +29,7 @@ fn setup() -> (Frontend,
 router! {
     struct Sink {
         [Entity, Parent] => parent: ParentInput,
-        [Entity, Delta] => transform: TransformInput
+        [Entity, Local] => transform: TransformInput
     }
 }
 
@@ -45,22 +45,22 @@ fn children() {
     let (front, mut sink, mut solved) = setup();
 
     let e0 = Entity::new()
-        .bind(Delta(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
+        .bind(Local(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
         .write(&mut sink);
     let e1 = Entity::new()
-        .bind(Delta(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
+        .bind(Local(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
         .bind(Parent::Child(e0))
         .write(&mut sink);
     let e2 = Entity::new()
-        .bind(Delta(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
+        .bind(Local(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
         .bind(Parent::Child(e1))
         .write(&mut sink);
     let e3 = Entity::new()
-        .bind(Delta(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
+        .bind(Local(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
         .bind(Parent::Child(e2))
         .write(&mut sink);
     let e4 = Entity::new()
-        .bind(Delta(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
+        .bind(Local(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
         .bind(Parent::Child(e3))
         .write(&mut sink);
 
@@ -85,26 +85,26 @@ fn children_tree() {
     let (front, mut sink, mut solved) = setup();
 
     let e0 = Entity::new()
-           .bind(Delta(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
+           .bind(Local(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
            .write(&mut sink);
     let e1 = Entity::new()
-           .bind(Delta(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(-1f32, -1f32, -1f32)}))
+           .bind(Local(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(-1f32, -1f32, -1f32)}))
            .write(&mut sink);
     let e2 = Entity::new()
            .bind(Parent::Child(e0))
-           .bind(Delta(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
+           .bind(Local(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
            .write(&mut sink);
     let e3 = Entity::new()
            .bind(Parent::Child(e0))
-           .bind(Delta(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(-1f32, -1f32, -1f32)}))
+           .bind(Local(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(-1f32, -1f32, -1f32)}))
            .write(&mut sink);
     let e4 = Entity::new()
            .bind(Parent::Child(e1))
-           .bind(Delta(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
+           .bind(Local(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
            .write(&mut sink);
     let e5 = Entity::new()
            .bind(Parent::Child(e1))
-           .bind(Delta(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(-1f32, -1f32, -1f32)}))
+           .bind(Local(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(-1f32, -1f32, -1f32)}))
            .write(&mut sink);
 
     sink.next_frame();
@@ -146,14 +146,14 @@ fn dirty_count() {
     let mut entitys = Vec::new();
     entitys.push(
         Entity::new()
-        .bind(Delta(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
+        .bind(Local(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
         .write(&mut sink)
     );
     for i in 0..9 {
         let last = entitys[i];
         entitys.push(
             Entity::new()
-            .bind(Delta(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
+            .bind(Local(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
             .bind(Parent::Child(last))
             .write(&mut sink)
         );
@@ -162,7 +162,7 @@ fn dirty_count() {
     assert_eq!(10, count(&mut solved));
     for i in 0..10 {
         entitys[i]
-            .bind(Delta(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
+            .bind(Local(Decomposed{scale: 1f32, rot: Quaternion::identity(), disp: Vector3::new(1f32, 1f32, 1f32)}))
             .write(&mut sink);
         sink.next_frame();
         assert_eq!(10-i, count(&mut solved));

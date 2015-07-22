@@ -15,7 +15,7 @@ use snowstorm::channel::*;
 use cgmath::*;
 use ordered_vec::OrderedVec;
 
-type Message = Operation<Entity, Delta>;
+type Message = Operation<Entity, Local>;
 
 #[derive(Clone, Debug)]
 struct TransformEntry {
@@ -112,7 +112,7 @@ impl TransformData {
 
 
 #[derive(Debug, Clone, Copy)]
-pub struct Delta(pub Decomposed<f32, Vector3<f32>, Quaternion<f32>>);
+pub struct Local(pub Decomposed<f32, Vector3<f32>, Quaternion<f32>>);
 #[derive(Debug, Clone, Copy)]
 pub struct Solved(pub Decomposed<f32, Vector3<f32>, Quaternion<f32>>);
 
@@ -169,8 +169,8 @@ pub fn transform(sched: &mut Schedule, mut parents: ParentSystem) -> TransformSy
     handle
 }
 
-impl entity::WriteEntity<Entity, Delta> for TransformSystem {
-    fn write(&mut self, eid: Entity, delta: Delta) {
+impl entity::WriteEntity<Entity, Local> for TransformSystem {
+    fn write(&mut self, eid: Entity, delta: Local) {
         self.send(Operation::Upsert(eid, delta));
     }
 }
