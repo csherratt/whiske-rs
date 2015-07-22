@@ -34,12 +34,12 @@ use transform::Delta;
 
 router!{
     struct Router {
-        [w: VertexBuffer, Vertex] |
-        [w: VertexBuffer, Vec<u32>] |
+        [rw: VertexBuffer, Vertex] |
+        [rw: VertexBuffer, Vec<u32>] |
         [w: Material, MaterialComponent<[f32; 4]>] |
         [w: Material, MaterialComponent<Texture>] |
-        [w: Texture, image::DynamicImage] |
-        [w: Geometry, GeometryData] => graphics: graphics::Graphics,
+        [rw: Texture, image::DynamicImage] |
+        [rw: Geometry, GeometryData] => graphics: graphics::Graphics,
         [w: Entity, DrawBinding] |
         [w: Entity, Camera] |
         [w: Entity, DebugText] |

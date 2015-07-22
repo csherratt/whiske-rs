@@ -212,6 +212,37 @@ impl WriteEntity<Texture, image::DynamicImage> for Graphics {
     }
 }
 
+impl ReadEntity<VertexBuffer, Vertex> for GraphicsStore {
+    fn read(&self, eid: &VertexBuffer) -> Option<&Vertex> {
+        self.vertex_buffer.get(&eid.0).map(|v| &v.vertex)
+    }
+}
+
+impl ReadEntity<VertexBuffer, Vec<u32>> for GraphicsStore {
+    fn read(&self, eid: &VertexBuffer) -> Option<&Vec<u32>> {
+        self.vertex_buffer.get(&eid.0).and_then(|v| v.index.as_ref())
+    }
+}
+
+impl ReadEntity<VertexBuffer, VertexBufferData> for GraphicsStore {
+    fn read(&self, eid: &VertexBuffer) -> Option<&VertexBufferData> {
+        self.vertex_buffer.get(&eid.0)
+    }
+}
+
+impl ReadEntity<Geometry, GeometryData> for GraphicsStore {
+    fn read(&self, eid: &Geometry) -> Option<&GeometryData> {
+        self.geometry.get(eid)
+    }
+}
+
+impl ReadEntity<Texture, image::DynamicImage> for GraphicsStore {
+    fn read(&self, eid: &Texture) -> Option<&image::DynamicImage> {
+        self.texture.get(eid)
+    }
+}
+
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Flag {
     Updated,
@@ -262,7 +293,6 @@ impl Graphics {
         }
     }
 }
-
 
 impl std::ops::Deref for Graphics {
     type Target = GraphicsStore;
@@ -479,4 +509,3 @@ impl Graphics {
         }
     }
 }
-
