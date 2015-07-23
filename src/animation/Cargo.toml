@@ -1,0 +1,43 @@
+[package]
+name = "whiske-rs-animation"
+version = "0.1.0"
+authors = ["Slide-rs Developers"]
+
+[lib]
+name = "animation"
+
+[dependencies]
+cgmath="*"
+
+[dependencies.fibe]
+git = "https://github.com/slide-rs/fibe-rs.git"
+
+[dependencies.snowstorm]
+git = "https://github.com/csherratt/snowstorm.git"
+
+[dependencies.future_pulse]
+git = "https://github.com/slide-rs/future_pulse.git"
+
+[dependencies.lease]
+git = "https://github.com/csherratt/lease.git"
+
+[dependencies.entity]
+git = "https://github.com/whiske-rs/entity.git"
+
+[dependencies.shared_future]
+git = "https://github.com/csherratt/shared_future.git"
+
+[dependencies.ordered_vec]
+git = "https://github.com/csherratt/ordered_vec.git"
+
+[dependencies.whiske-rs-parent]
+path = "../parent"
+
+[dependencies.whiske-rs-transform]
+path = "../transform"
+
+[dependencies.whiske-rs-engine]
+path = "../engine"
+
+[dependencies.whiske-rs-system]
+path = "../system"
