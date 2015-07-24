@@ -63,6 +63,24 @@ impl entity::WriteEntity<Entity, DebugText> for Renderer {
     }
 }
 
+impl entity::ReadEntity<Entity, DrawBinding> for Renderer {
+    fn read(&self, eid: &Entity) -> Option<&DrawBinding> {
+        self.binding.get(eid)
+    }
+}
+
+impl entity::ReadEntity<Entity, Camera> for Renderer {
+    fn read(&self, eid: &Entity) -> Option<&Camera> {
+        self.cameras.get(eid)
+    }
+}
+
+impl entity::ReadEntity<Entity, DebugText> for Renderer {
+    fn read(&self, eid: &Entity) -> Option<&DebugText> {
+        self.debug_text.get(eid)
+    }
+}
+
 #[derive(Clone)]
 pub struct RenderData {
     pub cameras: HashMap<Entity, Camera>,

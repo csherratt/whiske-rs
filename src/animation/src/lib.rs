@@ -9,7 +9,6 @@ extern crate system;
 extern crate parent;
 extern crate shared_future;
 
-use std::collections::HashSet;
 use cgmath::{Decomposed, Vector3, Quaternion, EuclideanVector};
 use ordered_vec::OrderedVec;
 use entity::{Entity, Operation};

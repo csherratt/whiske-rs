@@ -40,9 +40,9 @@ router!{
         [w: Material, MaterialComponent<Texture>] |
         [rw: Texture, image::DynamicImage] |
         [rw: Geometry, GeometryData] => graphics: graphics::Graphics,
-        [w: Entity, DrawBinding] |
-        [w: Entity, Camera] |
-        [w: Entity, DebugText] |
+        [rw: Entity, DrawBinding] |
+        [rw: Entity, Camera] |
+        [rw: Entity, DebugText] |
         [w: Entity, Primary] => renderer: Renderer,
         [w: Entity, Local] => transform: TransformSystem,
         [w: Entity, Scene] |
