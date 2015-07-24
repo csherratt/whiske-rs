@@ -50,12 +50,24 @@ router!{
 }
 
 impl Router {
-    fn next_frame(&mut self) {
-        self.parent.next_frame();
-        self.graphics.next_frame();
-        self.scene.next_frame();
-        self.transform.next_frame();
-        self.renderer.next_frame();
+    fn next_frame(self) -> Router {
+        let Router{
+            parent, graphics, scene, transform, renderer
+        } = self;
+
+        let parent = parent.next_frame();
+        let graphics = graphics.next_frame();
+        let scene = scene.next_frame();
+        let transform = transform.next_frame();
+        let renderer = renderer.next_frame();
+    
+        Router {
+            parent: parent.get().unwrap(),
+            graphics: graphics.get().unwrap(),
+            scene: scene.get().unwrap(),
+            transform: transform.get().unwrap(),
+            renderer: renderer.get().unwrap(),
+        }
     }
 }
 
@@ -140,6 +152,7 @@ fn main() {
     engine.start_input_processor(move |_, mut msg| {
         let mut start = time::precise_time_s();
         let mut end = time::precise_time_s();
+        let mut sink = sink;
 
         loop {
             let start_of_loop = time::precise_time_s();
@@ -164,7 +177,7 @@ fn main() {
                     },
                     shell[(i / 4) % shell.len()]))
                   .write(&mut sink);
-            sink.next_frame();
+            sink = sink.next_frame();
 
             start = start_of_loop;
             end = time::precise_time_s();

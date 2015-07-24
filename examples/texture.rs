@@ -46,12 +46,24 @@ router!{
 }
 
 impl Router {
-    fn next_frame(&mut self) {
-        self.parent.next_frame();
-        self.graphics.next_frame();
-        self.scene.next_frame();
-        self.transform.next_frame();
-        self.renderer.next_frame();
+    fn next_frame(self) -> Router {
+        let Router{
+            parent, graphics, scene, transform, renderer
+        } = self;
+
+        let parent = parent.next_frame();
+        let graphics = graphics.next_frame();
+        let scene = scene.next_frame();
+        let transform = transform.next_frame();
+        let renderer = renderer.next_frame();
+    
+        Router {
+            parent: parent.get().unwrap(),
+            graphics: graphics.get().unwrap(),
+            scene: scene.get().unwrap(),
+            transform: transform.get().unwrap(),
+            renderer: renderer.get().unwrap(),
+        }
     }
 }
 
@@ -107,6 +119,7 @@ fn main() {
            .write(&mut sink);
 
     engine.start_input_processor(move |_, mut msg| {
+        let mut sink = sink;
         loop {
             for _ in msg.copy_iter(true) {}
             msg.next_frame();
@@ -122,7 +135,7 @@ fn main() {
                     },
                     scene
                   )).write(&mut sink);
-            sink.next_frame();
+            sink = sink.next_frame();
         }
     });
     engine.run();

@@ -142,15 +142,16 @@ fn sync_ingest(ingest: &mut system::channel::Receiver<Message>) -> Vec<Operation
     msgs
 }
 
-pub fn transform(sched: &mut Schedule, mut parents: ParentSystem) -> TransformSystem {
+pub fn transform(sched: &mut Schedule, parents: ParentSystem) -> TransformSystem {
     let td = TransformData::new();
     let (mut system, handle) = system::System::new(td.clone(), td);
 
     task(move |_| {
+        let mut parents = Some(parents);
         loop {
-            let p = &mut parents;
             system = system.update(|mut transform, old, mut msgs| {
-                p.next_frame();
+                let mut p = parents.take().unwrap().next_frame().get().unwrap();
+
                 transform.clone_from(old);
 
                 let mut imsgs = sync_ingest(&mut msgs);
@@ -159,10 +160,11 @@ pub fn transform(sched: &mut Schedule, mut parents: ParentSystem) -> TransformSy
                 }
                 imsgs.sort_by(|a, b| a.key().cmp(b.key()));
 
-                transform.apply_ingest(p, &imsgs[..]);
-                transform.invalidate(p, &p.modified);
-                transform.update(p);
+                transform.apply_ingest(&mut p, &imsgs[..]);
+                transform.invalidate(&p, &p.modified);
+                transform.update(&mut p);
 
+                parents = Some(p);
                 transform
             });
         }

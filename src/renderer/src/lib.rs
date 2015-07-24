@@ -562,12 +562,12 @@ impl<R: Resources> GfxData<R> {
             render
         } = globals;
 
-        let scenes = scenes.next_frame_async();
-        let transform = transform.next_frame_async();
-        let render = render.next_frame_async();
+        let scenes = scenes.next_frame();
+        let transform = transform.next_frame();
+        let render = render.next_frame();
 
         let _g = hprof::enter("graphics-fetch");
-        graphics.next_frame();
+        graphics = graphics.next_frame().get().unwrap();
         drop(_g);
 
         self.update_with_graphics(&graphics, factory);
@@ -730,7 +730,7 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
             window.present(&mut self.device);
             drop(_g);
             hprof::end_frame();
-            //hprof::profiler().print_timing();
+            hprof::profiler().print_timing();
 
             self.globals = Some(rc.globals);
             self.gfx_data = Some(rc.local);

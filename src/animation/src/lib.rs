@@ -141,7 +141,7 @@ pub type Message = Operation<Entity, Animation>;
 
 pub fn animation(sched: &mut fibe::Schedule,
                  mut input: engine::InputChannel,
-                 mut parent: parent::ParentSystem,
+                 parent: parent::ParentSystem,
                  transform: TransformSystem) -> AnimationSystem {
 
     let mut transform = Some(shared_future::Future::from_value(transform));
@@ -152,6 +152,7 @@ pub fn animation(sched: &mut fibe::Schedule,
     let mut last_time = 0.;
 
     task(move |_| {
+        let mut parent = Some(parent);
         loop {
             system = system.update(|mut anim, old, mut msgs| {
                 last_time = time;
@@ -161,11 +162,11 @@ pub fn animation(sched: &mut fibe::Schedule,
                     }
                 }
                 input.next_frame();
-                parent.next_frame();
+                let p = parent.take().unwrap().next_frame().get().unwrap();
                 anim.clone_from(old);
 
                 let mut msgs = sync_ingest(&mut msgs);
-                for &p in &parent.deleted {
+                for &p in &p.deleted {
                     msgs.push(Operation::Delete(p));
                 }
                 msgs.sort_by(|a, b| a.key().cmp(b.key()));
@@ -175,7 +176,8 @@ pub fn animation(sched: &mut fibe::Schedule,
 
                 let mut t = transform.take().unwrap().get().unwrap();
                 anim.update(&mut t, last_time, time);
-                transform = Some(t.next_frame_async());
+                transform = Some(t.next_frame());
+                parent = Some(p);
 
                 anim
             });

@@ -15,43 +15,22 @@ pub struct System<Message:Send+Sync, Data:Send+Sync> {
     input: channel::Receiver<Message>
 }
 
-enum HandleState<Message:Send+Sync, Data:Send+Sync> {
-    Sync {
-        data: lease::Lease<Data>,
-        channel: channel::Sender<Message>,
-        next: shared_future::Future<SystemHandle<Message, Data>>        
-    },
-    Updating
+pub struct SystemHandle<Message:Send+Sync, Data:Send+Sync>{
+    data: lease::Lease<Data>,
+    channel: channel::Sender<Message>,
+    next: shared_future::Future<SystemHandle<Message, Data>>
 }
 
-impl<M, D> Clone for HandleState<M, D> 
-    where M: Send + Sync,
-          D: Send + Sync
-{
-    fn clone(&self) -> HandleState<M, D> {
-        match self {
-            &HandleState::Sync{ref data, ref channel, ref next} => {
-                HandleState::Sync{
-                    data: data.clone(),
-                    channel: channel.clone(),
-                    next: next.clone()
-                }
-            }
-            &HandleState::Updating => {
-                HandleState::Updating
-            }
-        }
-    }
-}
-
-pub struct SystemHandle<Message:Send+Sync, Data:Send+Sync>(HandleState<Message, Data>);
-
-impl<M, D> Clone for SystemHandle<M, D> 
+impl<M, D> Clone for SystemHandle<M, D>
     where M: Send + Sync,
           D: Send + Sync
 {
     fn clone(&self) -> SystemHandle<M, D> {
-        SystemHandle(self.0.clone())
+        SystemHandle{
+            data: self.data.clone(),
+            channel: self.channel.clone(),
+            next: self.next.clone()
+        }
     }
 }
 
@@ -59,53 +38,20 @@ impl<M, D> SystemHandle<M, D>
     where M: Send + Sync,
           D: Send + Sync
 {
-    /// Flush all changes and try and fetch the next update for this system
-    /// Returns true of the system was updated, false if it was not
-    pub fn next_frame(&mut self) -> bool {
-        use std::mem;
-        let mut next = HandleState::Updating;
-        mem::swap(&mut next, &mut self.0);
-
-        *self = match next {
-            HandleState::Sync{data, channel, next} => {
-                drop((data, channel));
-                match next.get() {
-                    Err(_) => return false,
-                    Ok(d) => d
-                }
-            }
-            HandleState::Updating => {
-                return false;
-            }
-        };
-
-        true
-    }
 
     /// Flush all changes and try and fetch the next update for this system
     /// Returns true of the system was updated, false if it was not
-    pub fn next_frame_async(self) -> shared_future::Future<SystemHandle<M, D>> {
-        match self.0 {
-            HandleState::Sync{data, channel, next} => {
-                drop((data, channel));
-                return next;
-            }
-            HandleState::Updating => {
-                unreachable!()
-            }
-        };
+    pub fn next_frame(self) -> shared_future::Future<SystemHandle<M, D>> {
+        let SystemHandle{data, channel, next} = self;
+        drop((data, channel));
+        next
     }
 
     /// Sends a message with to the system via the included channel
     /// The channels are buffered and therefore the delivery is not
     /// guaranteed to occur immediately
     pub fn send(&mut self, m: M) {
-        match self.0 {
-            HandleState::Sync{data: _, channel: ref mut ch, next: _} => {
-                ch.send(m);
-            }
-            _ => {}
-        }
+        self.channel.send(m);
     }
 }
 
@@ -115,12 +61,7 @@ impl<M, D> std::ops::Deref for SystemHandle<M, D>
 {
     type Target = D;
 
-    fn deref(&self) -> &D {
-        match self.0 {
-            HandleState::Sync{data: ref d, channel: _, next: _} => d,
-            _ => panic!("Handle is out of sync, cannot deref")
-        }   
-    }
+    fn deref(&self) -> &D { &self.data }
 }
 
 impl<M, D> System<M, D>
@@ -142,13 +83,11 @@ impl<M, D> System<M, D>
             input: input
         };
 
-        let handle = SystemHandle(
-            HandleState::Sync{
-                data: l,
-                channel: sender,
-                next: future
-            }
-        );
+        let handle = SystemHandle{
+            data: l,
+            channel: sender,
+            next: future
+        };
 
         (system, handle)
     }
@@ -163,13 +102,11 @@ impl<M, D> System<M, D>
         let (future, nset) = shared_future::Future::new();
 
         // Show the updated state to the outside world
-        set.set(SystemHandle(
-            HandleState::Sync{
-                data: l,
-                channel: sender,
-                next: future
-            }
-        ));
+        set.set(SystemHandle{
+            data: l,
+            channel: sender,
+            next: future
+        });
 
         System{
             front: next,

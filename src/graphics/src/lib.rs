@@ -269,40 +269,27 @@ pub struct GraphicsStore {
 }
 
 #[derive(Clone)]
-pub enum Graphics {
-    Valid {
-        /// a channel to send graphics data with
-        channel: Sender<Message>,
+pub struct Graphics {
+    /// a channel to send graphics data with
+    channel: Sender<Message>,
 
-        /// Link the the future of this store
-        next: shared_future::Future<Graphics>,
+    /// Link the the future of this store
+    next: shared_future::Future<Graphics>,
 
-        /// Link to the data associated with this frame
-        data: lease::Lease<GraphicsStore>,
-    },
-    UpdatePending
+    /// Link to the data associated with this frame
+    data: lease::Lease<GraphicsStore>,
 }
 
 impl Graphics {
     fn send(&mut self, msg: Message) {
-        match self {
-            &mut Graphics::Valid{ref mut channel, ref next, ref data} => {
-                channel.send(msg)
-            }
-            _ => ()
-        }
+        self.channel.send(msg)
     }
 }
 
 impl std::ops::Deref for Graphics {
     type Target = GraphicsStore;
 
-    fn deref(&self) -> &GraphicsStore {
-        match self {
-            &Graphics::Valid{ref channel, ref next, ref data} => data,
-            _ => panic!("Graphics is being Updated!")
-        }
-    }
+    fn deref(&self) -> &GraphicsStore { &self.data }
 }
 
 impl GraphicsStore {
@@ -452,7 +439,7 @@ fn worker(mut owner: lease::Owner<GraphicsStore>,
         let (nowner, lease) = lease::lease(data);
         let (tx, ninput) = channel();
         let (next, nset) = shared_future::Future::new();
-        set.set(Graphics::Valid{
+        set.set(Graphics{
             channel: tx,
             next: next,
             data: lease
@@ -481,7 +468,7 @@ impl Graphics {
 
         task(|_| worker(owner, set, rx)).start(sched);
 
-        Graphics::Valid {
+        Graphics {
             channel: tx,
             next: future,
             data: lease
@@ -489,23 +476,11 @@ impl Graphics {
     }
 
     /// Fetch the next frame
-    pub fn next_frame(&mut self) -> bool {
-        use std::mem;
-        let mut pending = Graphics::UpdatePending;
-        mem::swap(&mut pending, self);
-        let (mut channel, next, data) = match pending {
-            Graphics::Valid{channel, next, data} => (channel, next, data),
-            Graphics::UpdatePending => panic!("Invalid state"),
-        };
-        channel.flush();
-        drop(data);
-        drop(channel);
-        match next.get().ok() {
-            Some(next) => {
-                *self = next;
-                true
-            }
-            None => false
-        }
+    pub fn next_frame(self) -> shared_future::Future<Graphics> {
+        let Graphics {
+            channel, next, data
+        } = self;
+        drop((channel, data));
+        next
     }
 }

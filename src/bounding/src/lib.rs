@@ -112,22 +112,23 @@ impl BoundingStore {
 
 impl Bounding {
     /// Create a new bounding system
-    pub fn new(sched: &mut fibe::Schedule, mut g: graphics::Graphics) -> Bounding {
+    pub fn new(sched: &mut fibe::Schedule, graphics: graphics::Graphics) -> Bounding {
         let mut inner = BoundingStore {
             vb_to_geo: HashMap::new(),
             aabb: HashMap::new(),
             aabb_updated: HashSet::new()
         };
 
-        inner.update(&g);
+        inner.update(&graphics);
 
         let (mut front, l) = lease::lease(inner.clone());
         let (mut back, _) = lease::lease(inner);
         let (future, mut set) = shared_future::Future::new();
 
+        let mut graphics = Some(graphics);
         task(move |_| {
             loop {
-                g.next_frame();
+                let g = graphics.take().unwrap().next_frame().get().unwrap();
                 let mut inner = back.get();
                 inner.clone_from(&*front);
 
@@ -141,6 +142,7 @@ impl Bounding {
                     next: next
                 });
                 set = nset;
+                graphics = Some(g);
 
             }
         }).start(sched);

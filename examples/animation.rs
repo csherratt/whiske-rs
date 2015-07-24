@@ -48,13 +48,27 @@ router!{
 }
 
 impl Router {
-    fn next_frame(&mut self) {
-        self.parent.next_frame();
-        self.graphics.next_frame();
-        self.scene.next_frame();
-        self.animation.next_frame();
-        self.renderer.next_frame();
-        self.transform.next_frame();
+    fn next_frame(self) -> Router {
+        let Router {
+            parent, scene, animation, renderer, transform, graphics
+        } = self;
+
+        let parent = parent.next_frame();
+        let scene = scene.next_frame();
+        let animation = animation.next_frame();
+        let renderer = renderer.next_frame();
+        let transform = transform.next_frame();
+        let graphics = graphics.next_frame();
+
+        Router{
+            parent: parent.get().unwrap(),
+            scene: scene.get().unwrap(),
+            animation: animation.get().unwrap(),
+            renderer: renderer.get().unwrap(),
+            transform: transform.get().unwrap(),
+            graphics: graphics.get().unwrap()
+        }
+
     }
 }
 
@@ -113,8 +127,10 @@ fn main() {
 
     let camera = Entity::new();
 
+    let mut sink = Some(sink);
     engine.start_input_processor(move |_, mut msg| {
         loop {
+            let mut s = sink.take().unwrap();
             for _ in msg.copy_iter(true) {}
             msg.next_frame();
 
@@ -128,8 +144,8 @@ fn main() {
                         far: 1000.
                     },
                     scene
-                  )).write(&mut sink);
-            sink.next_frame();
+                  )).write(&mut s);
+            sink = Some(s.next_frame());
         }
     });
     engine.run();

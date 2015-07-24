@@ -97,7 +97,7 @@ pub fn no_clip(sched: &mut Schedule,
             if !input.next_frame() {
                 return;
             } else {
-                output.next_frame();
+                output = output.next_frame().get().unwrap();
             }
         }
     }).start(sched);

@@ -170,18 +170,20 @@ impl entity::WriteEntity<Scene, Entity> for SceneSystem {
 ///
 /// This will supply a SceneSystem for communication
 /// into and out of the system.
-pub fn scene(sched: &mut Schedule, mut parents: ParentSystem) -> SceneSystem {
+pub fn scene(sched: &mut Schedule, parents: ParentSystem) -> SceneSystem {
     let sd = SceneData::new();
     let (mut system, handle) = system::System::new(sd.clone(), sd);
 
     let mut limsgs = Vec::new();
 
     task(move |_| {
+        let mut parents = Some(parents);
         loop {
-            let p = &mut parents;
             system = system.update(|mut scene, _, mut msgs| {
+                let mut p = parents.take().unwrap();
                 let mut deleted = p.deleted.clone();
-                p.next_frame();
+
+                p = p.next_frame().get().unwrap();
                 for &d in p.deleted.iter() { deleted.insert(d); }
                 let imsgs = sync_ingest(&mut msgs);
 
@@ -190,6 +192,7 @@ pub fn scene(sched: &mut Schedule, mut parents: ParentSystem) -> SceneSystem {
                 scene.delete(&deleted);
 
                 limsgs = imsgs;
+                parents = Some(p);
                 scene
             });
         }
