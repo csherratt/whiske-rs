@@ -188,7 +188,7 @@ impl<R> AbstractScene<R> for RenderContext<R>
                 (Some(a), Some(b), Some(c)) => {
                     Some(MaterializedEntity{
                         aabb: self.globals.bounding.aabb[&draw.0],
-                        transform: AffineMatrix3{mat: (*c).into()},
+                        transform: AffineMatrix3{mat: c.0.into()},
                         mesh: a.mesh.clone(),
                         fragments: [gfx_scene::Fragment{
                             material: b.clone(),
@@ -699,7 +699,7 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
                     projection: c.0.clone().into(),
                     transform: globals.transform
                                       .world(cid)
-                                      .map(|&x| AffineMatrix3{mat: x.into()})
+                                      .map(|&x| AffineMatrix3{mat: x.0.into()})
                                       .unwrap_or_else(|| AffineMatrix3::identity())
                 }, c.1))
             } else {

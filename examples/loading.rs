@@ -30,7 +30,7 @@ use future_pulse::Future;
 use transform::TransformSystem;
 
 use entity::Entity;
-use transform::Local;
+use transform::{Local, World};
 
 router!{
     struct Router {
@@ -44,7 +44,8 @@ router!{
         [rw: Entity, Camera] |
         [rw: Entity, DebugText] |
         [w: Entity, Primary] => renderer: Renderer,
-        [w: Entity, Local] => transform: TransformSystem,
+        [w: Entity, Local] |
+        [r: Entity, World] => transform: TransformSystem,
         [w: Entity, Scene] |
         [w: Scene, Entity] => scene: scene::SceneSystem,
         [w: Entity, Parent] => parent: ParentSystem

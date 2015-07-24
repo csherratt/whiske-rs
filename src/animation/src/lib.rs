@@ -88,7 +88,7 @@ impl AnimationData {
 
         for (eid, anim) in self.lerps.iter_mut() {
             let mut current = if let Some(l) = t.local(*eid) {
-                *l
+                l.0
             } else {
                 continue;
             };

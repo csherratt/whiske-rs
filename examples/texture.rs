@@ -23,7 +23,7 @@ use renderer::{DrawBinding, Camera, Primary, Renderer};
 use scene::Scene;
 use cgmath::{Decomposed, Transform, PerspectiveFov, Quaternion, Vector3};
 use future_pulse::Future;
-use transform::{TransformSystem, Local};
+use transform::{TransformSystem, Local, World};
 use entity::Entity;
 
 router!{
@@ -37,7 +37,8 @@ router!{
         [rw: Entity, DrawBinding] |
         [rw: Entity, Camera] |
         [w: Entity, Primary] => renderer: Renderer,
-        [w: Entity, Local] => transform: TransformSystem,
+        [w: Entity, Local] |
+        [r: Entity, World] => transform: TransformSystem,
         [w: Entity, Scene] |
         [w: Scene, Entity] => scene: scene::SceneSystem,
         [w: Entity, Parent] => parent: ParentSystem

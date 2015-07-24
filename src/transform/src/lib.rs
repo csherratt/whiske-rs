@@ -20,9 +20,10 @@ type Message = Operation<Entity, Local>;
 #[derive(Clone, Debug)]
 struct TransformEntry {
     dirty: bool,
-    local: Decomposed<f32, Vector3<f32>, Quaternion<f32>>,
-    world: Decomposed<f32, Vector3<f32>, Quaternion<f32>>
+    local: Local,
+    world: World
 }
+
 
 #[derive(Clone)]
 pub struct TransformData {
@@ -45,12 +46,12 @@ fn mark_dirty(solved: &mut OrderedVec<Entity, TransformEntry>,
 
 impl TransformData {
     /// Get the world Trasform from the entity
-    pub fn local(&self, eid: Entity) -> Option<&Decomposed<f32, Vector3<f32>, Quaternion<f32>>> {
+    pub fn local(&self, eid: Entity) -> Option<&Local> {
         self.entries.get(&eid).map(|e| &e.local)
     }
 
     /// Get the world Trasform from the entity
-    pub fn world(&self, eid: Entity) -> Option<&Decomposed<f32, Vector3<f32>, Quaternion<f32>>> {
+    pub fn world(&self, eid: Entity) -> Option<&World> {
         self.entries.get(&eid).map(|e| &e.world)
     }
 
@@ -82,7 +83,7 @@ impl TransformData {
 
             if let Some(v) = entries.get(&eid) {
                 if !v.dirty {
-                    return v.world;
+                    return v.world.0;
                 }
             }
 
@@ -94,9 +95,9 @@ impl TransformData {
             };
 
             let v = entries.get_mut(&eid).unwrap();
-            v.world = parent.concat(&v.local);
+            v.world.0 = parent.concat(&v.local.0);
             v.dirty = false;
-            v.world           
+            v.world.0
         };
 
         let keys: Vec<Entity> = self.entries.iter()
@@ -113,10 +114,11 @@ impl TransformData {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Local(pub Decomposed<f32, Vector3<f32>, Quaternion<f32>>);
-#[derive(Debug, Clone, Copy)]
-pub struct Solved(pub Decomposed<f32, Vector3<f32>, Quaternion<f32>>);
 
-impl Solved {
+#[derive(Debug, Clone, Copy)]
+pub struct World(pub Decomposed<f32, Vector3<f32>, Quaternion<f32>>);
+
+impl World {
     pub fn to_mat(&self) -> Matrix4<f32> {
         From::from(self.0)
     }
@@ -130,8 +132,8 @@ fn sync_ingest(ingest: &mut system::channel::Receiver<Message>) -> Vec<Operation
             &Operation::Upsert(eid, local) => {
                 Operation::Upsert(eid, TransformEntry{
                     dirty: true,
-                    local: local.0,
-                    world: Decomposed::identity()
+                    local: local,
+                    world: World(Decomposed::identity())
                 })
             }
             &Operation::Delete(eid) => Operation::Delete(eid)
@@ -174,5 +176,19 @@ impl entity::WriteEntity<Entity, Local> for TransformSystem {
         self.send(Operation::Upsert(eid, delta));
     }
 }
+
+
+impl entity::ReadEntity<Entity, Local> for TransformSystem {
+    fn read(&self, eid: &Entity) -> Option<&Local> {
+        self.entries.get(eid).map(|x| &x.local)
+    }
+}
+
+impl entity::ReadEntity<Entity, World> for TransformSystem {
+    fn read(&self, eid: &Entity) -> Option<&World> {
+        self.entries.get(eid).map(|x| &x.world)
+    }
+}
+
 
 pub type TransformSystem = system::SystemHandle<Message, TransformData>;
