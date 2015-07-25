@@ -1,11 +1,9 @@
 extern crate fibe;
-extern crate snowstorm;
 extern crate entity;
 extern crate system;
 
 use std::collections::{HashMap, HashSet};
 use fibe::*;
-use snowstorm::channel::*;
 use entity::{Entity, WriteEntity, Operation};
 
 pub type Message = Operation<Entity, Parent>;

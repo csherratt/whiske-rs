@@ -9,9 +9,6 @@ name="parent"
 [dependencies.entity]
 git = "https://github.com/whiske-rs/entity.git"
 
-[dependencies.snowstorm]
-git = "https://github.com/csherratt/snowstorm.git"
-
 [dependencies.fibe]
 git = "https://github.com/slide-rs/fibe-rs.git"
 
