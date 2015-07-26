@@ -14,3 +14,4 @@ git = "https://github.com/slide-rs/fibe-rs.git"
 
 [dependencies.whiske-rs-system]
 path = "../system"
+

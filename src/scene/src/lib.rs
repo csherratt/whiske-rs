@@ -179,7 +179,7 @@ pub fn scene(sched: &mut Schedule, parents: ParentSystem) -> SceneSystem {
     task(move |_| {
         let mut parents = Some(parents);
         loop {
-            system = system.update(|mut scene, _, mut msgs| {
+            let s = system.update(|mut scene, _, mut msgs| {
                 let mut p = parents.take().unwrap();
                 let mut deleted = p.deleted.clone();
 
@@ -195,6 +195,8 @@ pub fn scene(sched: &mut Schedule, parents: ParentSystem) -> SceneSystem {
                 parents = Some(p);
                 scene
             });
+            system = if let Some(s) = s { s } else { return; };
+
         }
     }).start(sched);
 

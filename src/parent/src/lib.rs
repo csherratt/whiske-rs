@@ -11,7 +11,7 @@ pub type Message = Operation<Entity, Parent>;
 #[derive(Clone)]
 pub struct ParentData {
     /// Lookup table to find the parent from the child eid
-    pub child_to_parent: HashMap<Entity, Entity>,
+    pub child_to_parent: HashMap<Entity, Parent>,
 
     /// lookup table to find the children from the parent's eid
     pub parent_to_children: HashMap<Entity, HashSet<Entity>>,
@@ -35,7 +35,7 @@ impl ParentData {
 
     /// This creates a binding between the parent and the child
     fn bind(&mut self, parent: Entity, child: Entity) {
-        self.child_to_parent.insert(child, parent);
+        self.child_to_parent.insert(child, Parent::Child(parent));
         self.parent_to_children
             .entry(parent)
             .or_insert_with(HashSet::new)
@@ -63,6 +63,7 @@ impl ParentData {
             Operation::Delete(eid) => self.delete(eid),
             Operation::Upsert(eid, Parent::Root) => {
                 self.parent_to_children.insert(eid, HashSet::new());
+                self.child_to_parent.insert(eid, Parent::Root);
             }
             Operation::Upsert(eid, Parent::Child(parent)) => {
                 self.bind(parent, eid);
@@ -106,7 +107,7 @@ pub fn parent(sched: &mut Schedule) -> ParentSystem {
 
     task(move |_| {
         loop {
-            system = system.update(|mut parent, _, mut msgs| {
+            let s = system.update(|mut parent, _, mut msgs| {
                 let pmsgs = sync_ingest(&mut msgs);
 
                 parent.apply_parent(&lpmsgs[..]);
@@ -115,6 +116,7 @@ pub fn parent(sched: &mut Schedule) -> ParentSystem {
                 lpmsgs = pmsgs;
                 parent
             });
+            system = if let Some(s) = s { s } else { return; };
         }
     }).start(sched);
 
@@ -124,6 +126,12 @@ pub fn parent(sched: &mut Schedule) -> ParentSystem {
 impl entity::WriteEntity<Entity, Parent> for ParentSystem {
     fn write(&mut self, eid: Entity, value: Parent) {
         self.send(Operation::Upsert(eid, value));
+    }
+}
+
+impl entity::ReadEntity<Entity, Parent> for ParentSystem {
+    fn read(&self, eid: &Entity) -> Option<&Parent> {
+        self.child_to_parent.get(eid)
     }
 }
 

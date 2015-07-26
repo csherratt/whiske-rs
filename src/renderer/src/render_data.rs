@@ -150,7 +150,7 @@ pub fn renderer(sched: &mut fibe::Schedule) -> Renderer {
 
     task(move |_| {
         loop {
-            system = system.update(|mut scene, _, mut msgs| {
+            let s = system.update(|mut scene, _, mut msgs| {
                 let imsgs = sync_ingest(&mut msgs);
 
                 scene.apply_ingest(&limsgs[..]);
@@ -159,6 +159,7 @@ pub fn renderer(sched: &mut fibe::Schedule) -> Renderer {
                 limsgs = imsgs;
                 scene
             });
+            system = if let Some(s) = s { s } else { return; };
         }
     }).start(sched);
 

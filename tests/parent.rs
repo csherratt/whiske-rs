@@ -1,4 +1,4 @@
-/*extern crate parent;
+extern crate parent;
 extern crate fibe;
 extern crate entity;
 
@@ -9,27 +9,23 @@ use fibe::*;
 
 #[test]
 fn add_children() {
-    let mut hm = HashMap::new();
     let mut sched = Frontend::new();
-    let (mut input, mut output) = parent(&mut sched);
+    let mut parent = parent(&mut sched);
 
-    let root = Entity::new().bind(Parent::Root).write(&mut input);
-    let child = Entity::new().bind(Parent::Child(root)).write(&mut input);
-    input.next_frame();
+    let root = Entity::new().bind(Parent::Root).write(&mut parent);
+    let child = Entity::new().bind(Parent::Child(root)).write(&mut parent);
 
-    while let Ok(&msg) = output.recv() {
-        msg.write(&mut hm);
-    }
+    parent = parent.next_frame().get().unwrap();
 
-    assert_eq!(hm.get(&root).unwrap(), &Parent::Root);
-    assert_eq!(hm.get(&child).unwrap(), &Parent::Child(root));
+    assert_eq!(parent.read(&root).unwrap(), &Parent::Root);
+    assert_eq!(parent.read(&child).unwrap(), &Parent::Child(root));
 }
-
+/*
 #[test]
 fn delete_children() {
     let mut hm = HashMap::new();
     let mut sched = Frontend::new();
-    let (mut input, mut output) = parent(&mut sched);
+    let mut parent = parent(&mut sched);
 
     let root0 = Entity::new().bind(Parent::Root).write(&mut input);
     let child0 = Entity::new().bind(Parent::Child(root0)).write(&mut input);
@@ -56,7 +52,7 @@ fn delete_children() {
 fn huge_number_of_children() {
     let mut hm = HashMap::new();
     let mut sched = Frontend::new();
-    let (mut input, mut output) = parent(&mut sched);
+    let mut parent = parent(&mut sched);
 
     let root = Entity::new().bind(Parent::Root).write(&mut input);
     let mut parent = root;

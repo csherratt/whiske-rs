@@ -9,7 +9,7 @@ extern crate ordered_vec;
 
 use std::collections::HashSet;
 use entity::*;
-use parent::{parent, ParentSystem};
+use parent::{parent, ParentSystem, Parent};
 use fibe::*;
 use snowstorm::channel::*;
 use cgmath::*;
@@ -88,7 +88,7 @@ impl TransformData {
             }
 
             // check to see if I have a parent
-            let parent = if let Some(p) = parent.child_to_parent.get(&eid).map(|x| *x) {
+            let parent = if let Some(Parent::Child(p)) = parent.child_to_parent.get(&eid).map(|x| *x) {
                 solve(parent, entries, p)
             } else {
                 Decomposed::identity()
@@ -149,7 +149,7 @@ pub fn transform(sched: &mut Schedule, parents: ParentSystem) -> TransformSystem
     task(move |_| {
         let mut parents = Some(parents);
         loop {
-            system = system.update(|mut transform, old, mut msgs| {
+            let s = system.update(|mut transform, old, mut msgs| {
                 let mut p = parents.take().unwrap().next_frame().get().unwrap();
 
                 transform.clone_from(old);
@@ -167,6 +167,7 @@ pub fn transform(sched: &mut Schedule, parents: ParentSystem) -> TransformSystem
                 parents = Some(p);
                 transform
             });
+            system = if let Some(s) = s { s } else { return; };
         }
     }).start(sched);
 

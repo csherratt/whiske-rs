@@ -154,7 +154,7 @@ pub fn animation(sched: &mut fibe::Schedule,
     task(move |_| {
         let mut parent = Some(parent);
         loop {
-            system = system.update(|mut anim, old, mut msgs| {
+            let s = system.update(|mut anim, old, mut msgs| {
                 last_time = time;
                 for x in input.iter() {
                     if let &WindowEvent::TimeStamp(t) = x {
@@ -181,6 +181,7 @@ pub fn animation(sched: &mut fibe::Schedule,
 
                 anim
             });
+            system = if let Some(s) = s { s } else { return; };
         }
     }).start(sched);
 
