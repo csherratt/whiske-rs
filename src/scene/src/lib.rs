@@ -59,8 +59,8 @@ impl SceneData {
         }
     }
 
-    fn delete(&mut self, msgs: &HashSet<Entity>) {
-        for eid in msgs.iter() {
+    fn delete(&mut self, msgs: &HashMap<Entity, Option<parent::Parent>>) {
+        for eid in msgs.keys() {
             // A scene is deleted, we need to tell the downstream
             // as a series of unbinds
             if let Some(children) = self.contains.remove(&eid) {
@@ -184,7 +184,7 @@ pub fn scene(sched: &mut Schedule, parents: ParentSystem) -> SceneSystem {
                 let mut deleted = p.deleted.clone();
 
                 p = p.next_frame().get().unwrap();
-                for &d in p.deleted.iter() { deleted.insert(d); }
+                for (&k, &v) in p.deleted.iter() { deleted.insert(k, v); }
                 let imsgs = sync_ingest(&mut msgs);
 
                 scene.apply_ingest(&limsgs[..]);

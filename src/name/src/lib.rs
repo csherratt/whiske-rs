@@ -83,16 +83,69 @@ impl NameData {
                                 .or_insert_with(|| HashMap::new())
                                 .insert(name, eid);
                         }
-                        Some(&Parent::Root) => {
-                            self.root.insert(name, eid);
-                        }
-                        None => {
+                        Some(&Parent::Root) | None => {
                             self.root.insert(name, eid);
                         }
                     };
                 }
                 Operation::Delete(ref eid) => {
                     self.name.remove(eid);
+                    self.path.remove(eid);
+                }
+            }
+        }
+
+        for (c, v) in parent.deleted.iter() {
+            let name = if let Some(name) = self.name.remove(c) {
+                name
+            } else {
+                continue;
+            };
+            self.path.remove(c);
+
+            match v {
+                &Some(Parent::Root) | &None => {
+                    self.root
+                        .remove(&name);
+                }
+                &Some(Parent::Child(ref p)) => {
+                    self.path
+                        .get_mut(p)
+                        .map(|x| x.remove(&name));
+                }
+            }
+        }
+
+        for (c, old) in parent.modified.iter() {
+            let name = if let Some(name) = self.name.get(c) {
+                name
+            } else {
+                continue;
+            };
+            let new: &Parent = parent.read(c).unwrap();
+
+            match old {
+                &Some(Parent::Root) | &None => {
+                    self.root
+                        .remove(name);
+                }
+                &Some(Parent::Child(ref p)) => {
+                    self.path
+                        .get_mut(p)
+                        .map(|x| x.remove(name));
+                }
+            }
+
+            match new {
+                &Parent::Root => {
+                    self.root
+                        .insert(name.clone(), *c);
+                }
+                &Parent::Child(p) => {
+                    self.path
+                        .entry(p)
+                        .or_insert_with(|| HashMap::new())
+                        .insert(name.clone(), *c);
                 }
             }
         }

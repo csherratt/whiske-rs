@@ -17,10 +17,10 @@ pub struct ParentData {
     pub parent_to_children: HashMap<Entity, HashSet<Entity>>,
 
     // Set of deleted entities from the last updated
-    pub deleted: HashSet<Entity>,
+    pub deleted: HashMap<Entity, Option<Parent>>,
 
     // Entities that's parent was changed during the last update
-    pub modified: HashSet<Entity>
+    pub modified: HashMap<Entity, Option<Parent>>
 }
 
 impl ParentData {
@@ -28,19 +28,19 @@ impl ParentData {
         ParentData {
             child_to_parent: HashMap::new(),
             parent_to_children: HashMap::new(),
-            deleted: HashSet::new(),
-            modified: HashSet::new()
+            deleted: HashMap::new(),
+            modified: HashMap::new()
         }
     }
 
     /// This creates a binding between the parent and the child
     fn bind(&mut self, parent: Entity, child: Entity) {
-        self.child_to_parent.insert(child, Parent::Child(parent));
+        let old = self.child_to_parent.insert(child, Parent::Child(parent));
         self.parent_to_children
             .entry(parent)
             .or_insert_with(HashSet::new)
             .insert(child);
-        self.modified.insert(child);
+        self.modified.insert(child, old);
     }
 
     /// Recessively delete the children of a parent
@@ -50,12 +50,13 @@ impl ParentData {
                 self.delete(child);
             }
         }
-        if let Some(_) = self.child_to_parent.remove(&eid) {
+        let old = self.child_to_parent.remove(&eid);
+        if let Some(_) = old {
             if let Some(p2c) = self.parent_to_children.get_mut(&eid) {
                 p2c.remove(&eid);
             }
         }
-        self.deleted.insert(eid);
+        self.deleted.insert(eid, old);
     }
 
     fn write(&mut self, op: Operation<Entity, Parent>) {
@@ -63,7 +64,8 @@ impl ParentData {
             Operation::Delete(eid) => self.delete(eid),
             Operation::Upsert(eid, Parent::Root) => {
                 self.parent_to_children.insert(eid, HashSet::new());
-                self.child_to_parent.insert(eid, Parent::Root);
+                let old = self.child_to_parent.insert(eid, Parent::Root);
+                self.modified.insert(eid, old);
             }
             Operation::Upsert(eid, Parent::Child(parent)) => {
                 self.bind(parent, eid);

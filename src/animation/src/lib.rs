@@ -166,7 +166,7 @@ pub fn animation(sched: &mut fibe::Schedule,
                 anim.clone_from(old);
 
                 let mut msgs = sync_ingest(&mut msgs);
-                for &p in &p.deleted {
+                for &p in p.deleted.keys() {
                     msgs.push(Operation::Delete(p));
                 }
                 msgs.sort_by(|a, b| a.key().cmp(b.key()));

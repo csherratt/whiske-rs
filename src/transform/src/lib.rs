@@ -7,7 +7,7 @@ extern crate pulse;
 extern crate system;
 extern crate ordered_vec;
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 use entity::*;
 use parent::{parent, ParentSystem, Parent};
 use fibe::*;
@@ -62,16 +62,16 @@ impl TransformData {
     }
 
     fn apply_ingest(&mut self, parent: &ParentSystem, msg: &[Operation<Entity, TransformEntry>]) {
-        let mut invalidate = HashSet::new();
+        let mut invalidate = HashMap::new();
         self.entries.apply_updates(msg.iter().map(|x| x.clone()));
         for m in msg {
-            invalidate.insert(*m.key());
+            invalidate.insert(*m.key(), None);
         }
         self.invalidate(parent, &invalidate);
     }
 
-    fn invalidate(&mut self, parent: &ParentSystem, msg: &HashSet<Entity>) {
-        for &eid in msg.iter() {
+    fn invalidate(&mut self, parent: &ParentSystem, msg: &HashMap<Entity, Option<Parent>>) {
+        for &eid in msg.keys() {
             mark_dirty(&mut self.entries, parent, eid);
         }
     }
@@ -155,7 +155,7 @@ pub fn transform(sched: &mut Schedule, parents: ParentSystem) -> TransformSystem
                 transform.clone_from(old);
 
                 let mut imsgs = sync_ingest(&mut msgs);
-                for &d in p.deleted.iter() {
+                for &d in p.deleted.keys() {
                     imsgs.push(Operation::Delete(d));
                 }
                 imsgs.sort_by(|a, b| a.key().cmp(b.key()));
