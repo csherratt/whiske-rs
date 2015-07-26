@@ -33,6 +33,10 @@ impl Name {
     ///
     /// '.' and '/' are both reserved
     pub fn new(s: String) -> Option<Name> {
+        if s.len() == 0 {
+            return None;
+        }
+
         for c in s.chars() {
             match c {
                 '.' | '/' => return None,
@@ -49,6 +53,10 @@ pub struct NameData {
     /// Lookup table to find the parent from the child eid
     name: HashMap<Entity, Name>,
 
+    /// The `root` is used for objects with no parents
+    root: HashMap<Name, Entity>,
+
+    /// path is used for children of the root
     path: HashMap<Entity, HashMap<Name, Entity>>
 }
 
@@ -56,7 +64,8 @@ impl NameData {
     fn new() -> NameData {
         NameData{
             name: HashMap::new(),
-            path: HashMap::new()
+            path: HashMap::new(),
+            root: HashMap::new()
         }
     }
 
@@ -67,13 +76,20 @@ impl NameData {
                 Operation::Upsert(eid, name) => {
                     self.name.insert(eid, name.clone());
 
-                    let r: Option<&Parent> = parent.read(&eid);
-                    if let Some(&Parent::Child(p)) = r {
-                        self.path
-                            .entry(p)
-                            .or_insert_with(|| HashMap::new())
-                            .insert(name, eid);
-                    }
+                    match parent.read(&eid) {
+                        Some(&Parent::Child(p)) => {
+                            self.path
+                                .entry(p)
+                                .or_insert_with(|| HashMap::new())
+                                .insert(name, eid);
+                        }
+                        Some(&Parent::Root) => {
+                            self.root.insert(name, eid);
+                        }
+                        None => {
+                            self.root.insert(name, eid);
+                        }
+                    };
                 }
                 Operation::Delete(ref eid) => {
                     self.name.remove(eid);
@@ -128,6 +144,16 @@ impl entity::ReadEntity<Entity, Name> for NameSystem {
 
 pub struct ChildByName<'a>(pub Entity, pub &'a str);
 
+impl<'a> entity::ReadEntity<ChildByName<'a>, Entity> for NameData {
+    fn read(&self, eid: &ChildByName<'a>) -> Option<&Entity> {
+        if let Some(path) = self.path.get(&eid.0) {
+            path.get(eid.1)
+        } else {
+            None
+        }
+    }
+}
+
 impl<'a> entity::ReadEntity<ChildByName<'a>, Entity> for NameSystem {
     fn read(&self, eid: &ChildByName<'a>) -> Option<&Entity> {
         if let Some(path) = self.path.get(&eid.0) {
@@ -138,4 +164,50 @@ impl<'a> entity::ReadEntity<ChildByName<'a>, Entity> for NameSystem {
     }
 }
 
+pub struct RootName<'a>(pub &'a str);
+
+impl<'a> entity::ReadEntity<RootName<'a>, Entity> for NameData {
+    fn read(&self, eid: &RootName<'a>) -> Option<&Entity> {
+        self.root.get(eid.0)
+    }
+}
+
+impl<'a> entity::ReadEntity<RootName<'a>, Entity> for NameSystem {
+    fn read(&self, eid: &RootName<'a>) -> Option<&Entity> {
+        self.root.get(eid.0)
+    }
+}
+
 pub type NameSystem = system::SystemHandle<Message, NameData>;
+
+impl NameData {
+    pub fn lookup<'a, 'b>(&'a self, path: &'b str) -> Option<&'a Entity> {
+        let mut path: std::str::Split<'b, char> = path.split('.');
+
+        let root_path = if let Some(path) = path.next() {
+            path
+        } else {
+            return None;
+        };
+
+        let mut node = if let Some(eid) = self.read(&RootName(root_path)) {
+            eid
+        } else {
+            return None;
+        };
+
+        loop {
+            let p = if let Some(p) = path.next() {
+                p
+            } else {
+                return Some(node);
+            };
+
+            node = if let Some(eid) = self.read(&ChildByName(*node, p)) {
+                eid
+            } else {
+                return None
+            };
+        }
+    }
+}
