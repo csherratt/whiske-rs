@@ -180,7 +180,6 @@ impl entity::WriteEntity<Entity, Local> for TransformSystem {
     }
 }
 
-
 impl entity::ReadEntity<Entity, Local> for TransformSystem {
     fn read(&self, eid: &Entity) -> Option<&Local> {
         self.entries.get(eid).map(|x| &x.local)

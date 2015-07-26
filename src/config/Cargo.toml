@@ -1,0 +1,26 @@
+[package]
+name = "whiske-rs-config"
+version = "0.1.0"
+authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
+
+[lib]
+name="config"
+
+[dependencies.entity]
+git = "https://github.com/whiske-rs/entity.git"
+
+[dependencies.fibe]
+git = "https://github.com/slide-rs/fibe-rs.git"
+
+[dependencies.ordered_vec]
+git = "https://github.com/csherratt/ordered_vec.git"
+
+[dependencies.whiske-rs-system]
+path = "../system"
+
+[dependencies.whiske-rs-name]
+path = "../name"
+
+[dependencies.whiske-rs-parent]
+path = "../parent"
+

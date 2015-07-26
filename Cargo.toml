@@ -68,6 +68,10 @@ version = "*"
 path = "src/name"
 version = "*"
 
+[dependencies.whiske-rs-config]
+path = "src/config"
+version = "*"
+
 [dev-dependencies]
 time="*"
 image="*"
