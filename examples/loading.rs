@@ -14,6 +14,8 @@ extern crate time;
 extern crate image;
 extern crate obj_loader;
 extern crate bounding;
+extern crate config;
+extern crate name;
 
 use std::path::PathBuf;
 use std::env::args;
@@ -81,12 +83,14 @@ fn main() {
     let transform = transform::transform(engine.sched(), parent.clone());
     let graphics = graphics::Graphics::new(engine.sched());
     let bound = bounding::Bounding::new(engine.sched(), graphics.clone());
+    let name = name::name(engine.sched(), parent.clone());
+    let config = config::config(engine.sched(), parent.clone());
 
     let s = sscene.clone();
     let t = transform.clone();
     let (read, set) = Future::new();
     engine.start_render(|sched, ra|{
-        let (input, mut renderer) = renderer::RendererSystem::new(sched, graphics.clone(), t, s, bound, ra);
+        let (input, mut renderer) = renderer::RendererSystem::new(sched, graphics.clone(), t, s, bound, name, config, ra);
         set.set(input);
         Box::new(move |sched, stream| {
             renderer.draw(sched, stream);

@@ -11,6 +11,8 @@ extern crate std_graphics;
 extern crate cgmath;
 extern crate image;
 extern crate bounding;
+extern crate config;
+extern crate name;
 
 use std::path::PathBuf;
 
@@ -73,6 +75,8 @@ fn main() {
     let sscene = scene::scene(engine.sched(), parent.clone());
     let transform = transform::transform(engine.sched(), parent.clone());
     let graphics = graphics::Graphics::new(engine.sched());
+    let name = name::name(engine.sched(), parent.clone());
+    let config = config::config(engine.sched(), parent.clone());
 
     let bound = bounding::Bounding::new(engine.sched(), graphics.clone());
 
@@ -80,7 +84,7 @@ fn main() {
     let s = sscene.clone();
     let (read, set) = Future::new();
     engine.start_render(|sched, ra|{
-        let (input, mut renderer) = renderer::RendererSystem::new(sched, graphics.clone(), t, s, bound, ra);
+        let (input, mut renderer) = renderer::RendererSystem::new(sched, graphics.clone(), t, s, bound, name, config, ra);
         set.set(input);
         Box::new(move |sched, stream| {
             renderer.draw(sched, stream);

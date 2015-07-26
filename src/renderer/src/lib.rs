@@ -10,6 +10,8 @@ extern crate genmesh;
 extern crate lease;
 extern crate shared_future;
 extern crate system;
+extern crate config;
+extern crate name;
 
 #[macro_use]
 extern crate gfx;
@@ -41,7 +43,7 @@ use graphics::{
 };
 use scene::{Scene, SceneSystem};
 use engine::Window;
-use entity::Entity;
+use entity::{Entity, ReadEntity, WriteEntity};
 
 use gfx::{
     Mesh, handle, BufferRole, Factory,
@@ -66,11 +68,16 @@ struct GeometrySlice<R: Resources> {
 }
 
 struct Globals {
+    config_aabb_debug: Entity,
+
+
     graphics: graphics::Graphics,
     transform: TransformSystem,
     scenes: SceneSystem,    
     bounding: bounding::Bounding,
     render: Renderer,
+    config: config::ConfigSystem,
+    name: name::NameSystem,
 }
 
 struct GfxData<R: Resources> {
@@ -79,6 +86,7 @@ struct GfxData<R: Resources> {
     geometry_slice: HashMap<Geometry, GeometrySlice<R>>,
     textures: HashMap<Texture, handle::Texture<R>>,    
     sampler: gfx::handle::Sampler<R>,
+    aabb_debug: gfx_scene_aabb_debug::AabbRender<R>,
 }
 
 pub struct RendererSystem<R: Resources, C: gfx::CommandBuffer<R>, D: gfx::Device, F: Factory<R>> {
@@ -93,7 +101,6 @@ pub struct RendererSystem<R: Resources, C: gfx::CommandBuffer<R>, D: gfx::Device
 
     // debug
     text: gfx_text::Renderer<R, F>,
-    aabb_debug: gfx_scene_aabb_debug::AabbRender<R>,
 
     #[cfg(feature="virtual_reality")]
     ivr: Option<vr::IVRSystem>,
@@ -204,8 +211,11 @@ impl<R> AbstractScene<R> for RenderContext<R>
         let res = Context::new(&mut culler, camera)
             .draw(items.iter(), phase, stream);
 
-
-        //self.aabb_debug.render(items.iter(), camera, stream);
+        if let Some(&config::Config::Bool(en)) = self.globals.config.read(&self.globals.config_aabb_debug) {
+            if en {
+                self.local.aabb_debug.render(items.iter(), camera, stream);
+            }
+        }
         res
     }
 }
@@ -220,6 +230,8 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer<gf
                transform: TransformSystem,
                scenes: SceneSystem,
                bounding: bounding::Bounding,
+               mut name: name::NameSystem,
+               mut config: config::ConfigSystem,
                ra: engine::RenderArgs<Device, F>) -> (Renderer, RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer<gfx_device_gl::Resources>, Device, F>) {
 
         use gfx::tex::WrapMode::Tile;
@@ -254,6 +266,12 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer<gf
         );
 
         let aabb_debug = gfx_scene_aabb_debug::AabbRender::new(&mut factory).unwrap();
+        let config_aabb_debug = Entity::new()
+            .bind(name::Name::new("show aabb".to_string()))
+            .write(&mut name);
+
+        config_aabb_debug.bind(config::Config::Bool(false)).write(&mut config);
+
         let gfx_vr = vr.as_ref().map(|vr| gfx_vr::Render::new(&mut factory, vr));
 
         let render = render_data::renderer(sched);
@@ -263,7 +281,9 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer<gf
             graphics: graphics,
             scenes: scenes,
             bounding: bounding,
-            render: render.clone()
+            render: render.clone(),
+            config: config,
+            name: name
         };
 
         let gfx_data = GfxData{
@@ -272,6 +292,7 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer<gf
             geometry_slice: HashMap::new(),
             textures: HashMap::new(),
             sampler: sampler,
+            aabb_debug: aabb_debug,
         };
 
         (render.clone(),
@@ -282,7 +303,6 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer<gf
             factory: factory,
             pipeline: Some(pipeline),
             text: text,
-            aabb_debug: aabb_debug,
             ivr: vr,
             gvr: gfx_vr,
         })
@@ -294,6 +314,8 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer<gf
                transform: TransformSystem,
                scenes: SceneSystem,
                bounding: bounding::Bounding,
+               mut name: name::NameSystem,
+               mut config: config::ConfigSystem,
                ra: engine::RenderArgs<Device, F>) -> (Renderer, RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer<gfx_device_gl::Resources>, Device, F>) {
 
         use gfx::tex::WrapMode::Tile;
@@ -327,14 +349,21 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer<gf
         );
 
         let aabb_debug = gfx_scene_aabb_debug::AabbRender::new(&mut factory).unwrap();
+        let config_aabb_debug = Entity::new()
+            .bind(name::Name::new("show aabb".to_string()).unwrap())
+            .write(&mut name);
+        config_aabb_debug.bind(config::Config::Bool(false)).write(&mut config);
         let render = render_data::renderer(sched);
 
         let globals = Globals{
+            config_aabb_debug: config_aabb_debug,
             transform: transform,
             graphics: graphics,
             scenes: scenes,
             bounding: bounding,
-            render: render.clone()
+            render: render.clone(),
+            config: config,
+            name: name
         };
 
         let gfx_data = GfxData{
@@ -343,6 +372,7 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer<gf
             geometry_slice: HashMap::new(),
             textures: HashMap::new(),
             sampler: sampler,
+            aabb_debug: aabb_debug,
         };
 
         (render,
@@ -353,7 +383,6 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer<gf
             factory: factory,
             pipeline: Some(pipeline),
             text: text,
-            aabb_debug: aabb_debug,
             phantom: std::marker::PhantomData
         })
     }
@@ -555,16 +584,21 @@ impl<R: Resources> GfxData<R> {
         where F: Factory<R>
     {
         let Globals{
+            config_aabb_debug,
             mut graphics,
             scenes,
             transform,
             mut bounding,
-            render
+            render,
+            config,
+            name
         } = globals;
 
         let scenes = scenes.next_frame();
         let transform = transform.next_frame();
         let render = render.next_frame();
+        let config = config.next_frame();
+        let name = name.next_frame();
 
         let _g = hprof::enter("graphics-fetch");
         graphics = graphics.next_frame().get().unwrap();
@@ -588,12 +622,23 @@ impl<R: Resources> GfxData<R> {
         let render = render.get().unwrap();
         drop(_g);
 
+        let _g = hprof::enter("config-fetch");
+        let config = config.get().unwrap();
+        drop(_g);
+
+        let _g = hprof::enter("name-fetch");
+        let name = name.get().unwrap();
+        drop(_g);
+
         Globals {
+            config_aabb_debug: config_aabb_debug,
             graphics: graphics,
             scenes: scenes,
             transform: transform,
             bounding: bounding,
-            render: render
+            render: render,
+            name: name,
+            config: config
         }
     }
 
