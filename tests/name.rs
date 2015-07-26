@@ -334,3 +334,50 @@ fn rename() {
     assert_eq!(None, rtr.name.lookup("for.bar.cat"));
     assert_eq!(None, rtr.name.lookup("for.bar.dog"));
 }
+
+
+#[test]
+fn get_names() {
+    let mut sched = Frontend::new();
+    let parent = parent(&mut sched);
+    let name = name(&mut sched, parent.clone());
+
+    let mut rtr = Router{
+        name: name,
+        parent: parent
+    };
+
+    let parent = Entity::new()
+        .bind(Name::new("foo".to_string()).unwrap())
+        .write(&mut rtr);
+    let child0 = Entity::new()
+        .bind(Name::new("bar".to_string()).unwrap())
+        .bind(Parent::Child(parent))
+        .write(&mut rtr);
+    let child1 = Entity::new()
+        .bind(Name::new("baz".to_string()).unwrap())
+        .bind(Parent::Child(parent))
+        .write(&mut rtr);
+    let child2 = Entity::new()
+        .bind(Name::new("cat".to_string()).unwrap())
+        .bind(Parent::Child(child0))
+        .write(&mut rtr);
+    let child3 = Entity::new()
+        .bind(Name::new("dog".to_string()).unwrap())
+        .bind(Parent::Child(child0))
+        .write(&mut rtr);
+    rtr = rtr.next_frame();
+
+    assert_eq!(&parent, rtr.name.lookup("foo").unwrap());
+    assert_eq!(&child0, rtr.name.lookup("foo.bar").unwrap());
+    assert_eq!(&child1, rtr.name.lookup("foo.baz").unwrap());
+    assert_eq!(&child2, rtr.name.lookup("foo.bar.cat").unwrap());
+    assert_eq!(&child3, rtr.name.lookup("foo.bar.dog").unwrap());
+
+    assert_eq!("foo", rtr.name.full_path(&rtr.parent, &parent).unwrap());
+    assert_eq!("foo.bar", rtr.name.full_path(&rtr.parent, &child0).unwrap());
+    assert_eq!("foo.baz", rtr.name.full_path(&rtr.parent, &child1).unwrap());
+    assert_eq!("foo.bar.cat", rtr.name.full_path(&rtr.parent, &child2).unwrap());
+    assert_eq!("foo.bar.dog", rtr.name.full_path(&rtr.parent, &child3).unwrap());
+
+}

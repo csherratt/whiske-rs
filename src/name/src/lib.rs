@@ -195,6 +195,12 @@ impl entity::ReadEntity<Entity, Name> for NameSystem {
     }
 }
 
+impl entity::ReadEntity<Entity, Name> for NameData {
+    fn read(&self, eid: &Entity) -> Option<&Name> {
+        self.name.get(eid)
+    }
+}
+
 pub struct ChildByName<'a>(pub Entity, pub &'a str);
 
 impl<'a> entity::ReadEntity<ChildByName<'a>, Entity> for NameData {
@@ -261,6 +267,30 @@ impl NameData {
             } else {
                 return None
             };
+        }
+    }
+
+    /// create a printable path from an eid
+    pub fn full_path(&self, parent: &ParentSystem, eid: &Entity) -> Option<String> {
+        let p = parent.read(eid);
+        let mut base = match p {
+            None | Some(&Parent::Root) => String::new(),
+            Some(&Parent::Child(ref p)) => {
+                let mut p = if let Some(p) = self.full_path(parent, p) {
+                    p
+                } else {
+                    return None;
+                };
+                p.push_str(".");
+                p
+            }
+        };
+
+        if let Some(name) = self.read(eid) {
+            base.push_str(&**name);
+            Some(base)
+        } else {
+            None
         }
     }
 }
