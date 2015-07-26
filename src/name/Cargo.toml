@@ -1,0 +1,19 @@
+[package]
+name = "whiske-rs-name"
+version = "0.1.0"
+authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
+
+[lib]
+name="name"
+
+[dependencies.entity]
+git = "https://github.com/whiske-rs/entity.git"
+
+[dependencies.fibe]
+git = "https://github.com/slide-rs/fibe-rs.git"
+
+[dependencies.whiske-rs-system]
+path = "../system"
+
+[dependencies.whiske-rs-parent]
+path = "../parent"
