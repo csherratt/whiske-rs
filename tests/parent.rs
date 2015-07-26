@@ -2,7 +2,6 @@ extern crate parent;
 extern crate fibe;
 extern crate entity;
 
-use std::collections::HashMap;
 use entity::*;
 use parent::{parent, Parent};
 use fibe::*;
@@ -20,72 +19,58 @@ fn add_children() {
     assert_eq!(parent.read(&root).unwrap(), &Parent::Root);
     assert_eq!(parent.read(&child).unwrap(), &Parent::Child(root));
 }
-/*
+
 #[test]
 fn delete_children() {
-    let mut hm = HashMap::new();
     let mut sched = Frontend::new();
     let mut parent = parent(&mut sched);
 
-    let root0 = Entity::new().bind(Parent::Root).write(&mut input);
-    let child0 = Entity::new().bind(Parent::Child(root0)).write(&mut input);
-    root0.delete(&mut input);
+    let root0 = Entity::new().bind(Parent::Root).write(&mut parent);
+    let child0 = Entity::new().bind(Parent::Child(root0)).write(&mut parent);
+    root0.delete(&mut parent);
     
-    let root1 = Entity::new().bind(Parent::Root).write(&mut input);
-    let child1 = Entity::new().bind(Parent::Child(root1)).write(&mut input);
-    child1.delete(&mut input);
+    let root1 = Entity::new().bind(Parent::Root).write(&mut parent);
+    let child1 = Entity::new().bind(Parent::Child(root1)).write(&mut parent);
+    child1.delete(&mut parent);
     
-    input.next_frame();
+    parent = parent.next_frame().get().unwrap();
 
-    while let Ok(&msg) = output.recv() {
-        msg.write(&mut hm);
-    }
-
-    assert_eq!(hm.get(&root0), None);
-    assert_eq!(hm.get(&child0), None);
-    assert_eq!(hm.get(&root1).unwrap(), &Parent::Root);
-    assert_eq!(hm.get(&child1), None);
+    assert_eq!(parent.read(&root0), None);
+    assert_eq!(parent.read(&child0), None);
+    assert_eq!(parent.read(&root1).unwrap(), &Parent::Root);
+    assert_eq!(parent.read(&child1), None);
 }
-
 
 #[test]
 fn huge_number_of_children() {
-    let mut hm = HashMap::new();
     let mut sched = Frontend::new();
     let mut parent = parent(&mut sched);
 
-    let root = Entity::new().bind(Parent::Root).write(&mut input);
-    let mut parent = root;
+    let root = Entity::new().bind(Parent::Root).write(&mut parent);
+    let mut p = root;
 
     let mut children = Vec::new();
     for _ in 0..1_000 {
-        let child = Entity::new().bind(Parent::Child(parent)).write(&mut input);
-        parent = child;
+        let child = Entity::new().bind(Parent::Child(p)).write(&mut parent);
+        p = child;
         children.push(child);
     }
 
-    input.next_frame();
-    while let Ok(&msg) = output.recv() {
-        msg.write(&mut hm);
-    }
-    output.next_frame();
+    parent = parent.next_frame().get().unwrap();
 
-    assert_eq!(hm.get(&root).unwrap(), &Parent::Root);
-    parent = root;
+    assert_eq!(parent.read(&root).unwrap(), &Parent::Root);
+    p = root;
     for child in children.iter() {
-        assert_eq!(hm.get(child).unwrap(), &Parent::Child(parent));
-        parent = *child;
+        assert_eq!(parent.read(child).unwrap(), &Parent::Child(p));
+        p = *child;
     }
 
-    root.delete(&mut input);
-    input.next_frame();
-    while let Ok(&msg) = output.recv() {
-        msg.write(&mut hm);
-    }
+    root.delete(&mut parent);
 
-    assert_eq!(hm.get(&root), None);
+    parent = parent.next_frame().get().unwrap();
+
+    assert_eq!(parent.read(&root), None);
     for child in children.iter() {
-        assert_eq!(hm.get(child), None);
+        assert_eq!(parent.read(child), None);
     }
 }
-*/
