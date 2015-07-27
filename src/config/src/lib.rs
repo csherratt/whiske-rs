@@ -9,10 +9,11 @@ use entity::*;
 use ordered_vec::OrderedVec;
 use parent::ParentSystem;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub enum Config {
     Bool(bool),
-    Float(f64)
+    Float(f64),
+    String(String)
 }
 
 #[derive(Clone)]
@@ -31,8 +32,8 @@ impl ConfigData {
 
     fn apply_ingest(&mut self, data: &[Message]) {
         self.changed.clear();
-        self.current.apply_updates(data.iter().map(|&x| x));
-        self.changed.apply_updates(data.iter().map(|&x| x));
+        self.current.apply_updates(data.iter().map(|x| x.clone()));
+        self.changed.apply_updates(data.iter().map(|x| x.clone()));
     }
 }
 
@@ -40,7 +41,7 @@ type Message = Operation<Entity, Config>;
 
 // Reads from the parent channel
 fn sync_ingest(ingest: &mut system::channel::Receiver<Message>) -> Vec<Operation<Entity, Config>> {
-    ingest.iter().map(|&x| x).collect()
+    ingest.iter().map(|x| x.clone()).collect()
 }
 
 pub fn config(sched: &mut Schedule, parents: ParentSystem) -> ConfigSystem {

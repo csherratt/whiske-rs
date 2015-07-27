@@ -18,9 +18,6 @@ git = "https://github.com/csherratt/ordered_vec.git"
 [dependencies.whiske-rs-system]
 path = "../system"
 
-[dependencies.whiske-rs-name]
-path = "../name"
-
 [dependencies.whiske-rs-parent]
 path = "../parent"
 

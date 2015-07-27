@@ -68,8 +68,8 @@ struct GeometrySlice<R: Resources> {
 }
 
 struct Globals {
-    config_aabb_debug: Entity,
-
+    config_show_aabb: Entity,
+    config_show_profile: Entity,
 
     graphics: graphics::Graphics,
     transform: TransformSystem,
@@ -211,7 +211,7 @@ impl<R> AbstractScene<R> for RenderContext<R>
         let res = Context::new(&mut culler, camera)
             .draw(items.iter(), phase, stream);
 
-        if let Some(&config::Config::Bool(en)) = self.globals.config.read(&self.globals.config_aabb_debug) {
+        if let Some(&config::Config::Bool(en)) = self.globals.config.read(&self.globals.config_show_aabb) {
             if en {
                 self.local.aabb_debug.render(items.iter(), camera, stream);
             }
@@ -266,11 +266,11 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer<gf
         );
 
         let aabb_debug = gfx_scene_aabb_debug::AabbRender::new(&mut factory).unwrap();
-        let config_aabb_debug = Entity::new()
+        let config_show_aabb = Entity::new()
             .bind(name::Name::new("show aabb".to_string()))
             .write(&mut name);
 
-        config_aabb_debug.bind(config::Config::Bool(false)).write(&mut config);
+        config_show_aabb.bind(config::Config::Bool(false)).write(&mut config);
 
         let gfx_vr = vr.as_ref().map(|vr| gfx_vr::Render::new(&mut factory, vr));
 
@@ -349,14 +349,22 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer<gf
         );
 
         let aabb_debug = gfx_scene_aabb_debug::AabbRender::new(&mut factory).unwrap();
-        let config_aabb_debug = Entity::new()
-            .bind(name::Name::new("show aabb".to_string()).unwrap())
+
+        let config_show_aabb = Entity::new()
+            .bind(name::Name::new("show_aabb".to_string()).unwrap())
             .write(&mut name);
-        config_aabb_debug.bind(config::Config::Bool(false)).write(&mut config);
+        config_show_aabb.bind(config::Config::Bool(false)).write(&mut config);
+
+        let config_show_profile = Entity::new()
+            .bind(name::Name::new("show_profile".to_string()).unwrap())
+            .write(&mut name);
+        config_show_profile.bind(config::Config::Bool(false)).write(&mut config);
+
         let render = render_data::renderer(sched);
 
         let globals = Globals{
-            config_aabb_debug: config_aabb_debug,
+            config_show_aabb: config_show_aabb,
+            config_show_profile: config_show_profile,
             transform: transform,
             graphics: graphics,
             scenes: scenes,
@@ -584,7 +592,8 @@ impl<R: Resources> GfxData<R> {
         where F: Factory<R>
     {
         let Globals{
-            config_aabb_debug,
+            config_show_aabb,
+            config_show_profile,
             mut graphics,
             scenes,
             transform,
@@ -631,7 +640,8 @@ impl<R: Resources> GfxData<R> {
         drop(_g);
 
         Globals {
-            config_aabb_debug: config_aabb_debug,
+            config_show_aabb: config_show_aabb,
+            config_show_profile: config_show_profile,
             graphics: graphics,
             scenes: scenes,
             transform: transform,
@@ -718,8 +728,11 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
             window.present(&mut self.device);
             drop(_g);
             hprof::end_frame();
-            hprof::profiler().print_timing();
 
+            if let Some(&config::Config::Bool(en)) = rc.globals.config.read(&rc.globals.config_show_profile) {
+                if en { hprof::profiler().print_timing() };
+            }
+            
             self.globals = Some(rc.globals);
             self.gfx_data = Some(rc.local);
         } else {
@@ -775,7 +788,10 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
             window.present(&mut self.device);
             drop(_g);
             hprof::end_frame();
-            hprof::profiler().print_timing();
+
+            if let Some(&config::Config::Bool(en)) = rc.globals.config.read(&rc.globals.config_show_profile) {
+                if en { hprof::profiler().print_timing() };
+            }
 
             self.globals = Some(rc.globals);
             self.gfx_data = Some(rc.local);

@@ -1,5 +1,3 @@
-
-
 extern crate snowstorm;
 extern crate transform;
 extern crate entity;

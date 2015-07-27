@@ -16,6 +16,7 @@ extern crate image;
 extern crate bounding;
 extern crate config;
 extern crate name;
+extern crate config_menu;
 
 use graphics::{
     Vertex, VertexBuffer, Geometry, Texture,
@@ -30,6 +31,7 @@ use transform::TransformSystem;
 
 use entity::Entity;
 use transform::{Local, World};
+use config_menu::config_menu;
 
 router!{
     struct Router {
@@ -85,18 +87,32 @@ fn main() {
 
     let t = transform.clone();
     let s = sscene.clone();
+    let n = name.clone();
+    let c = config.clone();
     let (read, set) = Future::new();
     engine.start_render(|sched, ra|{
-        let (input, mut renderer) = renderer::RendererSystem::new(sched, graphics.clone(), t, s, bound, name, config, ra);
+        let (input, mut renderer) = renderer::RendererSystem::new(sched, graphics.clone(), t, s, bound, n, c, ra);
         set.set(input);
         Box::new(move |sched, stream| {
             renderer.draw(sched, stream);
         })
     });
 
+    let renderer = read.get();
+
+    let input = engine.input_channel();
+    config_menu(
+        engine.sched(),
+        input,
+        name,
+        parent.clone(),
+        config,
+        renderer.clone()
+    );
+
     let mut sink = Router {
         graphics: graphics,
-        renderer: read.get(),
+        renderer: renderer,
         transform: transform,
         scene: sscene,
         parent: parent
@@ -164,11 +180,11 @@ fn main() {
 
             i += 1;
 
-            text.bind(DebugText{
+            /*text.bind(DebugText{
                 text: format!("Input Loop {:3.2}ms", (end - start) * 1000.),
                 start: [20, 20],
                 color: [1., 1., 1., 1.]
-            }).write(&mut sink);
+            }).write(&mut sink);*/
 
             camera.bind(Primary)
                   .bind(Camera(
