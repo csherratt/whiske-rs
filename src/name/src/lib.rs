@@ -269,14 +269,23 @@ impl NameData {
             };
         }
     }
+}
 
+pub trait FullPath {
     /// create a printable path from an eid
-    pub fn full_path(&self, parent: &ParentSystem, eid: &Entity) -> Option<String> {
-        let p = parent.read(eid);
-        let mut base = match p {
+    fn full_path(&self, eid: &Entity) -> Option<String>;
+}
+
+impl<T> FullPath for T
+    where T: ReadEntity<Entity, Parent> +
+             ReadEntity<Entity, Name>
+{
+    /// create a printable path from an eid
+    fn full_path(&self, eid: &Entity) -> Option<String> {
+        let mut base = match self.read(eid) {
             None | Some(&Parent::Root) => String::new(),
             Some(&Parent::Child(ref p)) => {
-                let mut p = if let Some(p) = self.full_path(parent, p) {
+                let mut p = if let Some(p) = self.full_path(p) {
                     p
                 } else {
                     return None;
@@ -286,7 +295,8 @@ impl NameData {
             }
         };
 
-        if let Some(name) = self.read(eid) {
+        let name: Option<&Name> = self.read(eid);
+        if let Some(name) = name {
             base.push_str(&**name);
             Some(base)
         } else {

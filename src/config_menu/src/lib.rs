@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use entity::{Entity, WriteEntity, ReadEntity};
 
 use renderer::{Renderer, DebugText};
-use name::{Name, NameSystem};
+use name::{Name, NameSystem, FullPath};
 use config::{Config, ConfigSystem};
 use engine::event::{WindowEvent, Key, Action};
 use snowstorm::channel::Receiver;
@@ -72,7 +72,7 @@ fn write_config_menu(hm: &mut HashMap<Entity, Entity>,
 
     let mut start = 0;
     for (eid, config) in router.config.clone().current.iter() {
-        let res = router.name.full_path(&router.parent, eid)
+        let res = router.full_path(&eid)
             .map(|path| {
                 let eid = *hm.entry(*eid)
                   .or_insert_with(|| Entity::new());
@@ -141,8 +141,7 @@ fn move_down(router: &mut Router) {
             None
         })
         .and_then(|(name, eid)| {
-            rtr.name
-               .full_path(&rtr.parent, eid)
+            rtr.full_path(eid)
                .map(|path| (name, path))
         })
         .map(|(name, path)| {
@@ -162,8 +161,7 @@ fn move_up(router: &mut Router) {
             None
         })
         .and_then(|(name, eid)| {
-            rtr.name
-               .full_path(&rtr.parent, eid)
+            rtr.full_path(eid)
                .map(|path| (name, path))
         })
         .map(|(name, path)| {

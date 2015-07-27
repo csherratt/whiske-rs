@@ -374,10 +374,10 @@ fn get_names() {
     assert_eq!(&child2, rtr.name.lookup("foo.bar.cat").unwrap());
     assert_eq!(&child3, rtr.name.lookup("foo.bar.dog").unwrap());
 
-    assert_eq!("foo", rtr.name.full_path(&rtr.parent, &parent).unwrap());
-    assert_eq!("foo.bar", rtr.name.full_path(&rtr.parent, &child0).unwrap());
-    assert_eq!("foo.baz", rtr.name.full_path(&rtr.parent, &child1).unwrap());
-    assert_eq!("foo.bar.cat", rtr.name.full_path(&rtr.parent, &child2).unwrap());
-    assert_eq!("foo.bar.dog", rtr.name.full_path(&rtr.parent, &child3).unwrap());
+    assert_eq!("foo", rtr.full_path(&parent).unwrap());
+    assert_eq!("foo.bar", rtr.full_path(&child0).unwrap());
+    assert_eq!("foo.baz", rtr.full_path(&child1).unwrap());
+    assert_eq!("foo.bar.cat", rtr.full_path(&child2).unwrap());
+    assert_eq!("foo.bar.dog", rtr.full_path(&child3).unwrap());
 
 }
