@@ -101,19 +101,24 @@ fn write_config_menu(hm: &mut HashMap<Entity, Entity>,
     }
 }
 
-fn toggle(router: &mut Router) {
-    let rtr = router.clone();
-    rtr.name.lookup("config_menu.selected")
-        .and_then(|eid| {
-            match rtr.read(eid) {
-                Some(&Config::String(ref s)) => Some(s.clone()),
+fn select(router: &Router) -> Option<(&Entity, &Entity)> {
+    router.name.lookup("config_menu.selected")
+        .and_then(|cfg| {
+            match router.read(cfg) {
+                Some(&Config::String(ref s)) => Some((cfg, s.clone())),
                 _ => None
             }
         })
-        .and_then(|name| {
-            rtr.name.lookup(&name)
+        .and_then(|(cfg, name)| {
+            router.name.lookup(&name)
+                  .map(|n| (cfg, n))
         })
-        .and_then(|eid| {
+}
+
+fn toggle(router: &mut Router) {
+    let rtr = router.clone();
+    select(&rtr)
+        .and_then(|(_, eid)| {
             match rtr.read(eid) {
                 Some(&Config::Bool(ref s)) => Some((eid, !s)),
                 _ => None
@@ -122,7 +127,48 @@ fn toggle(router: &mut Router) {
         .map(|(eid, b)| {
             eid.bind(Config::Bool(b)).write(router);
         });
+}
 
+fn move_down(router: &mut Router) {
+    let rtr = router.clone();
+    select(&rtr)
+        .and_then(|(name, eid)| {
+            let mut found = false;
+            for (id, _) in router.config.current.iter() {
+                if found == true { return Some((name, id)); }
+                if eid == id { found = true; }
+            }
+            None
+        })
+        .and_then(|(name, eid)| {
+            rtr.name
+               .full_path(&rtr.parent, eid)
+               .map(|path| (name, path))
+        })
+        .map(|(name, path)| {
+            name.bind(Config::String(path)).write(router);
+        });
+}
+
+fn move_up(router: &mut Router) {
+    let rtr = router.clone();
+    select(&rtr)
+        .and_then(|(name, eid)| {
+            let mut last = None;
+            for (id, _) in router.config.current.iter() {
+                if id == eid { return last; }
+                last = Some((name, id));
+            }
+            None
+        })
+        .and_then(|(name, eid)| {
+            rtr.name
+               .full_path(&rtr.parent, eid)
+               .map(|path| (name, path))
+        })
+        .map(|(name, path)| {
+            name.bind(Config::String(path)).write(router);
+        });
 }
 
 fn hide_config_menu(hm: &mut HashMap<Entity, Entity>,
@@ -164,28 +210,38 @@ pub fn config_menu(sched: &mut Schedule,
             .bind(Config::Bool(false))
             .write(&mut router);
 
-        let select = Entity::new()
+        Entity::new()
             .bind(Name::new("selected".to_string()).unwrap())
             .bind(Parent::Child(menu))
             .bind(Config::String("config_menu.show".to_string()))
             .write(&mut router);
 
         loop {
-            let mut show = if let Some(&Config::Bool(v)) = router.read(&show_eid) {
+            let show = if let Some(&Config::Bool(v)) = router.read(&show_eid) {
                 v
             } else {
                 false
             };
 
             for msg in input.iter() {
-                println!("{:?}", msg);
                 match msg {
                     &WindowEvent::Key(Key::GraveAccent, _, Action::Press, _) => {
-                        show = !show;
-                        show_eid.bind(Config::Bool(show)).write(&mut router);
+                        show_eid.bind(Config::Bool(!show)).write(&mut router);
                     }
                     &WindowEvent::Key(Key::Enter, _, Action::Press, _) => {
                         toggle(&mut router);
+                    }
+                    &WindowEvent::Key(Key::Up, _, Action::Press, _) |
+                    &WindowEvent::Key(Key::Up, _, Action::Repeat, _) => {
+                        if show {
+                            move_up(&mut router);
+                        }
+                    }
+                    &WindowEvent::Key(Key::Down, _, Action::Press, _) |
+                    &WindowEvent::Key(Key::Down, _, Action::Repeat, _) => {
+                        if show {
+                            move_down(&mut router);
+                        }
                     }
                     _ => ()
                 }
