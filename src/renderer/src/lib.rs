@@ -541,7 +541,6 @@ impl<R: Resources> GfxData<R> {
     {
         let _g = hprof::enter("vertex_buffer");
         for (&id, &msg) in graphics.vertex_buffer_updated.iter() {
-            println!("Updating {:?}", id);
             match msg {
                 graphics::Flag::Updated => {
                     update_vertex_buffer(factory, &graphics, &mut self.vertex, id);
@@ -553,7 +552,6 @@ impl<R: Resources> GfxData<R> {
 
         let _g = hprof::enter("texture_updated");
         for (&id, &msg) in graphics.texture_updated.iter() {
-            println!("Updating {:?}", id);
             match msg {
                 graphics::Flag::Updated => {
                     self.add_texture(id, graphics.texture.get(&id).unwrap(), factory);
@@ -565,7 +563,6 @@ impl<R: Resources> GfxData<R> {
 
         let _g = hprof::enter("material_updated");
         for (&id, &msg) in graphics.material_updated.iter() {
-            println!("Updating {:?}", id);
             match msg {
                 graphics::Flag::Updated => {
                     self.add_material_texture(graphics, id);
@@ -577,7 +574,6 @@ impl<R: Resources> GfxData<R> {
 
         let _g = hprof::enter("geometry_updated");
         for (&id, &msg) in graphics.geometry_updated.iter() {
-            println!("Updating {:?}", id);
             match msg {
                 graphics::Flag::Updated => {
                     self.update_geometry(graphics, id);
