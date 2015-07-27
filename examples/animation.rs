@@ -14,6 +14,7 @@ extern crate bounding;
 extern crate animation;
 extern crate config;
 extern crate name;
+extern crate config_menu;
 
 use graphics::{
     Vertex, VertexBuffer, Geometry, Texture,
@@ -27,6 +28,7 @@ use future_pulse::Future;
 use transform::{TransformSystem, Local, World};
 use entity::Entity;
 use animation::{animation, Lerp, Animation, AnimationSystem};
+use config_menu::config_menu;
 
 router!{
     struct Router {
@@ -86,21 +88,35 @@ fn main() {
 
     let t = transform.clone();
     let s = sscene.clone();
+    let n = name.clone();
+    let c = config.clone();
     let (read, set) = Future::new();
     engine.start_render(|sched, ra|{
-        let (input, mut renderer) = renderer::RendererSystem::new(sched, graphics.clone(), t, s, bound, name, config, ra);
+        let (input, mut renderer) = renderer::RendererSystem::new(sched, graphics.clone(), t, s, bound, n, c, ra);
         set.set(input);
         Box::new(move |sched, stream| {
             renderer.draw(sched, stream);
         })
     });
 
+    let renderer = read.get();
+
+    let input = engine.input_channel();
+    config_menu(
+        engine.sched(),
+        input,
+        name,
+        parent.clone(),
+        config,
+        renderer.clone()
+    );
+
     let ch = engine.input_channel();
     let animation = animation(engine.sched(), ch, parent.clone(), transform.clone());
 
     let mut sink = Router {
         graphics: graphics,
-        renderer: read.get(),
+        renderer: renderer,
         transform: transform,
         scene: sscene,
         parent: parent,
