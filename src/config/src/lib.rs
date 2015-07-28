@@ -3,11 +3,13 @@ extern crate fibe;
 extern crate entity;
 extern crate ordered_vec;
 extern crate parent;
+extern crate name;
 
 use fibe::*;
 use entity::*;
 use ordered_vec::OrderedVec;
 use parent::ParentSystem;
+use name::PathLookup;
 
 #[derive(Clone, Debug)]
 pub enum Config {
@@ -86,3 +88,50 @@ impl entity::ReadEntity<Entity, Config> for ConfigSystem {
 }
 
 pub type ConfigSystem = system::SystemHandle<Message, ConfigData>;
+
+pub trait GetConfig<'a> {
+    fn config_bool(&self, item: &'a str) -> Option<bool>;
+    fn config_f64(&self, item: &'a str) -> Option<f64>;
+    fn config_string(&self, item: &'a str) -> Option<&str>;
+}
+
+impl<'a, T> GetConfig<'a> for T
+    where T: PathLookup<'a> +
+             ReadEntity<Entity, Config>
+{
+    fn config_bool(&self, item: &'a str) -> Option<bool> {
+        self.lookup(item)
+            .and_then(|eid| self.read(eid))
+            .and_then(|config| {
+                if let &Config::Bool(b) = config {
+                    Some(b)
+                } else {
+                    None
+                }
+            })
+    }
+
+    fn config_f64(&self, item: &'a str) -> Option<f64> {
+        self.lookup(item)
+            .and_then(|eid| self.read(eid))
+            .and_then(|config| {
+                if let &Config::Float(f) = config {
+                    Some(f)
+                } else {
+                    None
+                }
+            })
+    }
+
+    fn config_string(&self, item: &'a str) -> Option<&str> {
+        self.lookup(item)
+            .and_then(|eid| self.read(eid))
+            .and_then(|config| {
+                if let &Config::String(ref s) = config {
+                    Some(&s[..])
+                } else {
+                    None
+                }
+            })
+    }
+}

@@ -12,8 +12,8 @@ use std::collections::HashMap;
 use entity::{Entity, WriteEntity, ReadEntity};
 
 use renderer::{Renderer, DebugText};
-use name::{Name, NameSystem, FullPath};
-use config::{Config, ConfigSystem};
+use name::{Name, NameSystem, FullPath, PathLookup, ChildByName, RootName};
+use config::{Config, ConfigSystem, GetConfig};
 use engine::event::{WindowEvent, Key, Action};
 use snowstorm::channel::Receiver;
 use fibe::{Schedule, task};
@@ -25,6 +25,17 @@ router!{
         [rw: Entity, DebugText] => render: Renderer,
         [rw: Entity, Parent] => parent: ParentSystem,
         [rw: Entity, Name] => name: NameSystem
+    }
+}
+
+impl<'a> ReadEntity<ChildByName<'a>, Entity> for Router {
+    fn read(&self, eid: &ChildByName<'a>) -> Option<&Entity> {
+        self.name.read(eid)
+    }
+}
+impl<'a> ReadEntity<RootName<'a>, Entity> for Router {
+    fn read(&self, eid: &RootName<'a>) -> Option<&Entity> {
+        self.name.read(eid)
     }
 }
 
@@ -70,7 +81,9 @@ fn write_config_menu(hm: &mut HashMap<Entity, Entity>,
             }
           });
 
-    let mut start = 0;
+    let spacing = router.config_f64("config_menu.spacing").unwrap_or(15.) as i32;
+    let start_x = router.config_f64("config_menu.position.x").unwrap_or(10.) as i32;
+    let mut start_y = router.config_f64("config_menu.position.y").unwrap_or(10.) as i32;
     for (eid, config) in router.config.clone().current.iter() {
         let res = router.full_path(&eid)
             .map(|path| {
@@ -89,10 +102,10 @@ fn write_config_menu(hm: &mut HashMap<Entity, Entity>,
                     [0.5, 0.5, 0.5, 1.]
                 };
 
-                start += 15;
+                start_y += spacing;
                 (eid, DebugText{
                     text: text,
-                    start: [10, start],
+                    start: [start_x, start_y],
                     color: color
                 })
             });
@@ -169,6 +182,81 @@ fn move_up(router: &mut Router) {
         });
 }
 
+fn value_add(router: &mut Router, v: f64) {
+    let rate = router.config_f64("config_menu.shift_rate").unwrap_or(1.);
+
+    let rtr = router.clone();
+    select(&rtr)
+        .and_then(|(_, eid)| {
+            match rtr.read(eid) {
+                Some(&Config::Float(ref s)) => Some((eid, s + v * rate)),
+                _ => None
+            }
+        })
+        .map(|(eid, b)| {
+            eid.bind(Config::Float(b)).write(router);
+        });
+}
+
+fn update_buffer<F>(router: &mut Router, cb: F)
+    where F: FnOnce(&mut String)
+{
+    let rtr = router.clone();
+    let mut buffer = rtr
+        .config_string("config_menu.buffer")
+        .unwrap_or("")
+        .to_string();
+
+    cb(&mut buffer);
+
+    rtr.lookup("config_menu.buffer")
+       .map(|eid| eid.bind(Config::String(buffer)).write(router));
+}
+
+fn char_append(router: &mut Router, c: char) {
+    update_buffer(router, |buf| buf.push(c));
+}
+
+fn char_pop(router: &mut Router) {
+    update_buffer(router, |buf| { buf.pop(); });
+}
+
+fn take_selected_value(router: &mut Router) {
+    let rtr = router.clone();
+    update_buffer(router, |buf| {
+        let selected = rtr.config_string("config_menu.selected")
+            .unwrap_or("config_menu.selected");
+        let eid = rtr.lookup(selected).unwrap();
+        *buf = match rtr.read(eid) {
+            Some(&Config::String(ref s)) => s.clone(),
+            Some(&Config::Float(f)) => format!("{}", f),
+            Some(&Config::Bool(b)) => format!("{}", b),
+            None => "".to_string()
+        };
+    });
+}
+
+fn write_value(router: &mut Router) {
+    let rtr = router.clone();
+    let selected = rtr.config_string("config_menu.selected").unwrap_or("");
+    let selected_id = if let Some(id) = rtr.lookup(selected) {
+        id
+    } else {
+        return;
+    };
+    let buffer = rtr.config_string("config_menu.buffer").unwrap_or("");
+
+    match rtr.read(selected_id) {
+        Some(&Config::String(_)) => Some(Config::String(buffer.to_string())),
+        Some(&Config::Bool(_)) => Some(Config::Bool(buffer == "true")),
+        Some(&Config::Float(_)) => match std::str::FromStr::from_str(buffer) {
+            Ok(f) => Some(Config::Float(f)),
+            Err(_) => None
+        },
+        None => None
+    }.map(|config| selected_id.bind(config).write(router));
+}
+
 fn hide_config_menu(hm: &mut HashMap<Entity, Entity>,
                     router: &mut Router) {
     for (_, v) in hm.iter() {
@@ -214,6 +302,43 @@ pub fn config_menu(sched: &mut Schedule,
             .bind(Config::String("config_menu.show".to_string()))
             .write(&mut router);
 
+        Entity::new()
+            .bind(Name::new("buffer".to_string()).unwrap())
+            .bind(Parent::Child(menu))
+            .bind(Config::String("".to_string()))
+            .write(&mut router);
+
+        Entity::new()
+            .bind(Name::new("shift_rate".to_string()).unwrap())
+            .bind(Parent::Child(menu))
+            .bind(Config::Float(1.))
+            .write(&mut router);
+
+        Entity::new()
+            .bind(Name::new("spacing".to_string()).unwrap())
+            .bind(Parent::Child(menu))
+            .bind(Config::Float(15.))
+            .write(&mut router);
+
+        let pos = Entity::new()
+            .bind(Name::new("position".to_string()).unwrap())
+            .bind(Parent::Child(menu))
+            .write(&mut router);
+
+        Entity::new()
+            .bind(Name::new("x".to_string()).unwrap())
+            .bind(Parent::Child(pos))
+            .bind(Config::Float(10.))
+            .write(&mut router);
+
+        Entity::new()
+            .bind(Name::new("y".to_string()).unwrap())
+            .bind(Parent::Child(pos))
+            .bind(Config::Float(10.))
+            .write(&mut router);
+
+        let mut moved = false;
+        let mut updated = false;
         loop {
             let show = if let Some(&Config::Bool(v)) = router.read(&show_eid) {
                 v
@@ -221,11 +346,22 @@ pub fn config_menu(sched: &mut Schedule,
                 false
             };
 
+            if moved {
+                take_selected_value(&mut router);
+                moved = false;
+            }
+
+            if updated {
+                write_value(&mut router);
+                updated = false;
+            }
+
             for msg in input.iter() {
                 match msg {
                     &WindowEvent::Key(Key::GraveAccent, _, Action::Press, _) => {
                         show_eid.bind(Config::Bool(!show)).write(&mut router);
                     }
+                    &WindowEvent::Key(Key::Space, _, Action::Press, _) |
                     &WindowEvent::Key(Key::Enter, _, Action::Press, _) => {
                         toggle(&mut router);
                     }
@@ -233,12 +369,39 @@ pub fn config_menu(sched: &mut Schedule,
                     &WindowEvent::Key(Key::Up, _, Action::Repeat, _) => {
                         if show {
                             move_up(&mut router);
+                            moved = true;
                         }
                     }
                     &WindowEvent::Key(Key::Down, _, Action::Press, _) |
                     &WindowEvent::Key(Key::Down, _, Action::Repeat, _) => {
                         if show {
                             move_down(&mut router);
+                            moved = true;
+                        }
+                    }
+                    &WindowEvent::Key(Key::Right, _, Action::Press, _) |
+                    &WindowEvent::Key(Key::Right, _, Action::Repeat, _) => {
+                        if show {
+                            value_add(&mut router, 1.);
+                        }
+                    }
+                    &WindowEvent::Key(Key::Left, _, Action::Press, _) |
+                    &WindowEvent::Key(Key::Left, _, Action::Repeat, _) => {
+                        if show {
+                            value_add(&mut router, -1.);
+                        }
+                    }
+                    &WindowEvent::Char(c) => {
+                        if show {
+                            char_append(&mut router, c);
+                            updated = true;
+                        }
+                    }
+                    &WindowEvent::Key(Key::Backspace, _, Action::Press, _) |
+                    &WindowEvent::Key(Key::Backspace, _, Action::Repeat, _) => {
+                        if show {
+                            char_pop(&mut router);
+                            updated = true;
                         }
                     }
                     _ => ()

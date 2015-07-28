@@ -21,3 +21,5 @@ path = "../system"
 [dependencies.whiske-rs-parent]
 path = "../parent"
 
+[dependencies.whiske-rs-name]
+path = "../name"

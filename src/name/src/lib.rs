@@ -239,9 +239,16 @@ impl<'a> entity::ReadEntity<RootName<'a>, Entity> for NameSystem {
 
 pub type NameSystem = system::SystemHandle<Message, NameData>;
 
-impl NameData {
-    pub fn lookup<'a, 'b>(&'a self, path: &'b str) -> Option<&'a Entity> {
-        let mut path: std::str::Split<'b, char> = path.split('.');
+pub trait PathLookup<'a> {
+    fn lookup(&self, path: &'a str) -> Option<&Entity>;
+}
+
+impl<'a, T> PathLookup<'a> for T
+    where T: ReadEntity<RootName<'a>, Entity> +
+             ReadEntity<ChildByName<'a>, Entity> 
+{
+    fn lookup(&self, path: &'a str) -> Option<&Entity> {
+        let mut path: std::str::Split<'a, char> = path.split('.');
 
         let root_path = if let Some(path) = path.next() {
             path
@@ -268,7 +275,7 @@ impl NameData {
                 return None
             };
         }
-    }
+    } 
 }
 
 pub trait FullPath {
