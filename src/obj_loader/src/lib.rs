@@ -9,7 +9,7 @@ extern crate genmesh;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::io::{BufReader, Error};
+use std::io::{self, BufReader};
 use std::fs::File;
 use std::sync::Arc;
 
@@ -60,7 +60,7 @@ fn load_textures(sched: &mut Schedule,
 }
 
 /// Load the material returning it as a future
-fn load_material(sched: &mut Schedule, path: PathBuf) -> Future<Result<obj::Mtl, Error>> {
+fn load_material(sched: &mut Schedule, path: PathBuf) -> Future<Result<obj::Mtl, io::Error>> {
     task(move |_| {
         File::open(&path)
              .map(|file| {
@@ -174,10 +174,9 @@ fn load_geometry(sched: &mut Schedule,
     res
 }
 
-pub fn load(sched: &mut Schedule, path: PathBuf, src: Graphics)
-    -> Result<Future<HashMap<(String, String), (Geometry, Option<graphics::Material>)>>,
-              std::io::Error> {
-    
+pub fn load_obj(sched: &mut Schedule, path: PathBuf, src: Graphics)
+    -> Result<Future<Object>, std::io::Error> {
+
     File::open(path.clone()).map(|f| {
         task(move |sched| {
             let mut f = BufReader::new(f);
@@ -223,3 +222,35 @@ pub fn load(sched: &mut Schedule, path: PathBuf, src: Graphics)
         }).start(sched)
     })
 }
+
+pub fn load(sched: &mut Schedule, path: PathBuf, src: Graphics)
+    -> Result<Future<Object>, Error> {
+
+    match path.extension() {
+        Some(s) => {
+            if s == "obj" {
+                match load_obj(sched, path.clone(), src) {
+                    Err(e) => Err(e.into()),
+                    Ok(x) => Ok(x)
+                }
+            } else {
+                Err(Error::UnknownType)
+            }
+        }
+        None => Err(Error::UnknownType)
+    }
+}
+
+#[derive(Debug)]
+pub enum Error {
+    UnknownType,
+    Io(std::io::Error)
+}
+
+impl Into<Error> for std::io::Error {
+    fn into(self) -> Error {
+        Error::Io(self)
+    }
+}
+
+pub type Object = HashMap<(String, String), (Geometry, Option<graphics::Material>)>;
