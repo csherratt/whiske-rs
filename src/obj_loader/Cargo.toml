@@ -31,8 +31,8 @@ git = "https://github.com/slide-rs/fibe-rs.git"
 [dependencies.future_pulse]
 git = "https://github.com/slide-rs/future_pulse.git"
 
-[dev-dependencies.no_clip]
-git = "https://github.com/csherratt/no_clip.git"
+[dependencies.collada]
+git = "https://github.com/PistonDevelopers/piston_collada.git"
 
 [dev-dependencies.whiske-rs-renderer]
 path = "../renderer"
