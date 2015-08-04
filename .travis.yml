@@ -25,3 +25,6 @@ script:
   travis-cargo test &&
   travis-cargo bench &&
   travis-cargo doc
+- |
+  travis-cargo build -- --features virtual_reality &&
+  travis-cargo test -- --features virtual_reality
