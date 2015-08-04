@@ -1,7 +1,6 @@
 extern crate snowstorm;
 extern crate transform;
 extern crate entity;
-extern crate fibe;
 extern crate cgmath;
 extern crate pulse;
 extern crate camera;
@@ -12,7 +11,7 @@ use entity::Entity;
 use engine::event::{WindowEvent, Key, Action};
 use transform::{TransformSystem, Local};
 use snowstorm::channel::Receiver;
-use fibe::{Schedule, task};
+use engine::fibe::{Schedule, task};
 use cgmath::{Decomposed, Quaternion, Vector3, rad, Rotation3, Angle};
 
 pub fn no_clip(sched: &mut Schedule,

@@ -18,8 +18,8 @@ git = "https://github.com/whiske-rs/entity.git"
 [dependencies.whiske-rs-graphics]
 path = "../graphics"
 
-[dependencies.fibe]
-git = "https://github.com/slide-rs/fibe-rs.git"
+[dependencies.whiske-rs-engine]
+path = "../engine"
 
 [dependencies.future_pulse]
 git = "https://github.com/slide-rs/future_pulse.git"

@@ -1,5 +1,4 @@
 extern crate parent;
-extern crate fibe;
 extern crate snowstorm;
 extern crate entity;
 extern crate pulse;
@@ -9,11 +8,12 @@ extern crate image;
 extern crate gfx;
 extern crate shared_future;
 extern crate lease;
+extern crate engine;
 
 use std::iter::FromIterator;
 use std::collections::HashMap;
 
-use fibe::*;
+use engine::fibe::*;
 
 use entity::*;
 use snowstorm::mpsc::*;
@@ -451,7 +451,7 @@ fn worker(mut owner: lease::Owner<GraphicsStore>,
 }
 
 impl Graphics {
-    pub fn new(sched: &mut fibe::Schedule) -> Graphics {
+    pub fn new(sched: &mut Schedule) -> Graphics {
         let (tx, rx) = channel();
         let (future, set) = shared_future::Future::new();
         let (owner, lease) = lease::lease(GraphicsStore{

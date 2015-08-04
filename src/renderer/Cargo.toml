@@ -49,9 +49,6 @@ path = "../config"
 [dependencies.snowstorm]
 git = "https://github.com/csherratt/snowstorm.git"
 
-[dependencies.fibe]
-git = "https://github.com/slide-rs/fibe-rs.git"
-
 [dependencies.gfx_pipeline]
 git = "https://github.com/csherratt/gfx_pipeline.git"
 

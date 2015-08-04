@@ -1,5 +1,5 @@
 extern crate parent;
-extern crate fibe;
+extern crate engine;
 extern crate snowstorm;
 extern crate entity;
 extern crate cgmath;
@@ -10,7 +10,7 @@ extern crate ordered_vec;
 use std::collections::HashMap;
 use entity::*;
 use parent::{parent, ParentSystem, Parent};
-use fibe::*;
+use engine::fibe::*;
 use snowstorm::channel::*;
 use cgmath::*;
 use ordered_vec::OrderedVec;

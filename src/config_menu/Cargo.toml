@@ -9,9 +9,6 @@ name="config_menu"
 [dependencies.entity]
 git = "https://github.com/whiske-rs/entity.git"
 
-[dependencies.fibe]
-git = "https://github.com/slide-rs/fibe-rs.git"
-
 [dependencies.ordered_vec]
 git = "https://github.com/csherratt/ordered_vec.git"
 

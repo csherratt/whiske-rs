@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use image::ImageError;
 use pulse::{SelectMap, Signals};
-use fibe::{Schedule, task};
+use engine::fibe::{Schedule, task};
 use future_pulse::Future;
 use graphics::{
     self, Graphics, Texture, VertexBuffer,

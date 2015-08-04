@@ -3,7 +3,6 @@ extern crate transform;
 extern crate graphics;
 extern crate scene;
 extern crate snowstorm;
-extern crate fibe;
 extern crate bounding;
 extern crate hprof;
 extern crate genmesh;
@@ -43,6 +42,7 @@ use graphics::{
 };
 use scene::{Scene, SceneSystem};
 use engine::Window;
+use engine::fibe::Schedule;
 use entity::{Entity, ReadEntity, WriteEntity};
 
 use gfx::{
@@ -225,7 +225,7 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer<gf
 
 {
     #[cfg(feature="virtual_reality")]
-    pub fn new(sched: &mut fibe::Schedule,
+    pub fn new(sched: &mut Schedule,
                graphics: Graphics,
                transform: TransformSystem,
                scenes: SceneSystem,
@@ -309,7 +309,7 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer<gf
     }
 
     #[cfg(not(feature="virtual_reality"))]
-    pub fn new(sched: &mut fibe::Schedule,
+    pub fn new(sched: &mut Schedule,
                graphics: Graphics,
                transform: TransformSystem,
                scenes: SceneSystem,
@@ -659,7 +659,7 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
 
 {
     #[cfg(feature="virtual_reality")]
-    pub fn draw(&mut self, _: &mut fibe::Schedule, window: &mut Window<D, R>) {
+    pub fn draw(&mut self, _: &mut Schedule, window: &mut Window<D, R>) {
         let mut globals = self.globals.take().unwrap();
         let mut gfx_data = self.gfx_data.take().unwrap();
 
@@ -738,7 +738,7 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
     }
 
     #[cfg(not(feature="virtual_reality"))]
-    pub fn draw(&mut self, _: &mut fibe::Schedule, window: &mut Window<D, R>) {
+    pub fn draw(&mut self, _: &mut Schedule, window: &mut Window<D, R>) {
         let mut globals = self.globals.take().unwrap();
         let mut gfx_data = self.gfx_data.take().unwrap();
 

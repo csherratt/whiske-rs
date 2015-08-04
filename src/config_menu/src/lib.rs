@@ -1,6 +1,5 @@
 #[macro_use(route, router)]
 extern crate entity;
-extern crate fibe;
 extern crate engine;
 extern crate name;
 extern crate config;
@@ -15,8 +14,8 @@ use renderer::{Renderer, DebugText};
 use name::{Name, NameSystem, FullPath, PathLookup, ChildByName, RootName};
 use config::{Config, ConfigSystem, GetConfig};
 use engine::event::{WindowEvent, Key, Action};
+use engine::fibe::{Schedule, task};
 use snowstorm::channel::Receiver;
-use fibe::{Schedule, task};
 use parent::{Parent, ParentSystem};
 
 router!{

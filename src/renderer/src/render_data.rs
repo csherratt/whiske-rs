@@ -6,7 +6,7 @@ use scene::Scene;
 use entity::{self, Entity, Operation};
 use snowstorm::mpsc::*;
 use system;
-use fibe::{self, task};
+use engine::fibe::{self, task};
 
 
 /// This holds the binding between a geometry and the material

@@ -15,7 +15,7 @@
 extern crate cgmath;
 extern crate entity;
 extern crate graphics;
-extern crate fibe;
+extern crate engine;
 extern crate future_pulse;
 extern crate genmesh;
 extern crate pulse;
@@ -32,7 +32,7 @@ use genmesh::{MapToVertices, Indexer, LruIndexer};
 use genmesh::{Vertices, Triangulate, Quad, Polygon};
 use cgmath::{Vector3, EuclideanVector};
 
-use fibe::{Schedule, task};
+use engine::fibe::{Schedule, task};
 use future_pulse::Future;
 
 fn build_vectors<T: Iterator<Item=Quad<VertexPosTexNorm>>>(input: T)

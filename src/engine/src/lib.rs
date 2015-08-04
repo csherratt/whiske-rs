@@ -1,4 +1,4 @@
-extern crate fibe;
+extern crate fibe as fibers;
 extern crate snowstorm;
 extern crate gfx;
 extern crate gfx_device_gl;
@@ -13,6 +13,10 @@ extern crate gfx_vr;
 
 pub mod event;
 use event::WindowEvent;
+
+pub mod fibe {
+    pub use fibers::*;
+}
 
 use fibe::*;
 use glfw::{Context};

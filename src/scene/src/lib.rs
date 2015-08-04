@@ -1,5 +1,5 @@
 extern crate entity;
-extern crate fibe;
+extern crate engine;
 extern crate parent;
 extern crate shared_future;
 extern crate lease;
@@ -7,7 +7,7 @@ extern crate system;
 
 use std::collections::{HashSet, HashMap};
 use entity::{Entity, DeleteEntity};
-use fibe::{task, Schedule};
+use engine::fibe::{task, Schedule};
 use parent::ParentSystem;
 
 /// This holds an abstract of a scene

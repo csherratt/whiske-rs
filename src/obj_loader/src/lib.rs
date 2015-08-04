@@ -1,7 +1,7 @@
 
 extern crate graphics;
 extern crate future_pulse;
-extern crate fibe;
+extern crate engine;
 extern crate pulse;
 extern crate image;
 extern crate genmesh;
@@ -10,7 +10,7 @@ extern crate obj;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use fibe::{Schedule};
+use engine::fibe::{Schedule};
 use future_pulse::Future;
 use graphics::{Graphics, Geometry};
 use obj::Material;

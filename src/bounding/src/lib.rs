@@ -1,17 +1,15 @@
-
-
 extern crate cgmath;
 extern crate graphics;
 extern crate entity;
 extern crate lease;
-extern crate fibe;
+extern crate engine;
 extern crate shared_future;
 
 use std::collections::{HashMap, HashSet};
 use cgmath::{Aabb, Aabb3, Point3, Vector4, Matrix, Matrix4};
 use entity::Entity;
 use graphics::{Graphics, Geometry, GeometryData, VertexBufferData};
-use fibe::*;
+use engine::fibe::*;
 
 #[derive(Clone)]
 pub struct Bounding {
@@ -112,7 +110,7 @@ impl BoundingStore {
 
 impl Bounding {
     /// Create a new bounding system
-    pub fn new(sched: &mut fibe::Schedule, graphics: graphics::Graphics) -> Bounding {
+    pub fn new(sched: &mut Schedule, graphics: graphics::Graphics) -> Bounding {
         let mut inner = BoundingStore {
             vb_to_geo: HashMap::new(),
             aabb: HashMap::new(),

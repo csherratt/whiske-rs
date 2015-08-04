@@ -1,6 +1,5 @@
 
 extern crate engine;
-extern crate fibe;
 extern crate entity;
 extern crate cgmath;
 extern crate transform;
@@ -13,7 +12,7 @@ use cgmath::{Decomposed, Vector3, Quaternion, EuclideanVector};
 use ordered_vec::OrderedVec;
 use entity::{Entity, Operation};
 use transform::{TransformSystem, Local};
-use fibe::*;
+use engine::fibe::*;
 use engine::event::WindowEvent;
 
 #[derive(Copy, Clone, Debug)]
@@ -139,7 +138,7 @@ fn sync_ingest(ingest: &mut system::channel::Receiver<Message>) -> Vec<Message> 
 
 pub type Message = Operation<Entity, Animation>;
 
-pub fn animation(sched: &mut fibe::Schedule,
+pub fn animation(sched: &mut Schedule,
                  mut input: engine::InputChannel,
                  parent: parent::ParentSystem,
                  transform: TransformSystem) -> AnimationSystem {

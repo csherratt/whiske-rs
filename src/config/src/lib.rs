@@ -1,11 +1,11 @@
 extern crate system;
-extern crate fibe;
+extern crate engine;
 extern crate entity;
 extern crate ordered_vec;
 extern crate parent;
 extern crate name;
 
-use fibe::*;
+use engine::fibe::*;
 use entity::*;
 use ordered_vec::OrderedVec;
 use parent::ParentSystem;

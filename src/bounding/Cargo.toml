@@ -9,9 +9,6 @@ name = "bounding"
 [dependencies]
 cgmath="*"
 
-[dependencies.fibe]
-git = "https://github.com/slide-rs/fibe-rs.git"
-
 [dependencies.snowstorm]
 git = "https://github.com/csherratt/snowstorm.git"
 
@@ -26,6 +23,9 @@ git = "https://github.com/whiske-rs/entity.git"
 
 [dependencies.whiske-rs-graphics]
 path = "../graphics"
+
+[dependencies.whiske-rs-engine]
+path = "../engine"
 
 [dependencies.shared_future]
 git = "https://github.com/csherratt/shared_future.git"

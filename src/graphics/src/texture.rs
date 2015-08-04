@@ -1,7 +1,7 @@
 
 use std::path::PathBuf;
 use entity::{Entity, EntityBinding};
-use fibe::{Schedule, task};
+use engine::fibe::{Schedule, task};
 use image;
 use Graphics;
 use future_pulse::Future;

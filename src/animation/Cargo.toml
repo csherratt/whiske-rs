@@ -9,9 +9,6 @@ name = "animation"
 [dependencies]
 cgmath="*"
 
-[dependencies.fibe]
-git = "https://github.com/slide-rs/fibe-rs.git"
-
 [dependencies.snowstorm]
 git = "https://github.com/csherratt/snowstorm.git"
 

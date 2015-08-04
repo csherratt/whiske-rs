@@ -1,9 +1,9 @@
-extern crate fibe;
+extern crate engine;
 extern crate entity;
 extern crate system;
 
 use std::collections::{HashMap, HashSet};
-use fibe::*;
+use engine::fibe::*;
 use entity::{Entity, WriteEntity, Operation};
 
 pub type Message = Operation<Entity, Parent>;

@@ -1,11 +1,11 @@
-extern crate fibe;
 extern crate entity;
 extern crate system;
 extern crate parent;
+extern crate engine;
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use fibe::*;
+use engine::fibe::*;
 use entity::{Entity, ReadEntity, WriteEntity, Operation};
 use parent::{Parent, ParentSystem};
 

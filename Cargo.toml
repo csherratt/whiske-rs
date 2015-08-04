@@ -3,19 +3,6 @@ name = "whiske-rs"
 version = "0.1.0"
 authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
 
-[dependencies]
-glfw="*"
-cgmath="*"
-
-[dependencies.snowstorm]
-git = "https://github.com/csherratt/snowstorm.git"
-
-[dependencies.fibe]
-git = "https://github.com/slide-rs/fibe-rs.git"
-
-[dependencies.entity]
-git = "https://github.com/whiske-rs/entity.git"
-
 [dependencies.whiske-rs-engine]
 path = "src/engine"
 version = "*"
@@ -75,6 +62,19 @@ version = "*"
 [dependencies.whiske-rs-config_menu]
 path = "src/config_menu"
 version = "*"
+
+[dev-dependencies]
+glfw="*"
+cgmath="*"
+
+[dev-dependencies.snowstorm]
+git = "https://github.com/csherratt/snowstorm.git"
+
+[dev-dependencies.fibe]
+git = "https://github.com/slide-rs/fibe-rs.git"
+
+[dev-dependencies.entity]
+git = "https://github.com/whiske-rs/entity.git"
 
 [dev-dependencies]
 time="*"

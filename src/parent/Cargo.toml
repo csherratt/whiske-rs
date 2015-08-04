@@ -9,8 +9,8 @@ name="parent"
 [dependencies.entity]
 git = "https://github.com/whiske-rs/entity.git"
 
-[dependencies.fibe]
-git = "https://github.com/slide-rs/fibe-rs.git"
+[dependencies.whiske-rs-engine]
+path = "../engine"
 
 [dependencies.whiske-rs-system]
 path = "../system"
