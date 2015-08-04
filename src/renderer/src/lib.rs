@@ -266,9 +266,16 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer<gf
         );
 
         let aabb_debug = gfx_scene_aabb_debug::AabbRender::new(&mut factory).unwrap();
+
         let config_show_aabb = Entity::new()
-            .bind(name::Name::new("show aabb".to_string()))
+            .bind(name::Name::new("show_aabb".to_string()).unwrap())
             .write(&mut name);
+        config_show_aabb.bind(config::Config::Bool(false)).write(&mut config);
+
+        let config_show_profile = Entity::new()
+            .bind(name::Name::new("show_profile".to_string()).unwrap())
+            .write(&mut name);
+        config_show_profile.bind(config::Config::Bool(false)).write(&mut config);
 
         config_show_aabb.bind(config::Config::Bool(false)).write(&mut config);
 
@@ -277,6 +284,8 @@ impl<F> RendererSystem<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer<gf
         let render = render_data::renderer(sched);
 
         let globals = Globals{
+            config_show_aabb: config_show_aabb,
+            config_show_profile: config_show_profile,
             transform: transform,
             graphics: graphics,
             scenes: scenes,
@@ -674,7 +683,7 @@ impl<R, C, D, F> RendererSystem<R, C, D, F>
                     projection: c.0.clone().into(),
                     transform: globals.transform
                                       .world(cid)
-                                      .map(|&x| AffineMatrix3{mat: x.into()})
+                                      .map(|&x| AffineMatrix3{mat: x.0.into()})
                                       .unwrap_or_else(|| AffineMatrix3::identity())
                 }, c.1))
             } else {
