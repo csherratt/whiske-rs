@@ -66,6 +66,8 @@ version = "*"
 [dev-dependencies]
 glfw="*"
 cgmath="*"
+time="*"
+image="*"
 
 [dev-dependencies.snowstorm]
 git = "https://github.com/csherratt/snowstorm.git"
@@ -75,10 +77,6 @@ git = "https://github.com/slide-rs/fibe-rs.git"
 
 [dev-dependencies.entity]
 git = "https://github.com/whiske-rs/entity.git"
-
-[dev-dependencies]
-time="*"
-image="*"
 
 [dev-dependencies.future_pulse]
 git = "https://github.com/csherratt/future_pulse.git"
