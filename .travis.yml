@@ -19,6 +19,7 @@ install:
   - sudo apt-get install xdotool cmake libXxf86vm-dev libxinerama-dev libxinerama1 libxcursor-dev libxcursor1
 
 script:
+- export TRAVIS_CARGO_NIGHTLY_FEATURE=
 - |
   travis-cargo build &&
   travis-cargo test &&
