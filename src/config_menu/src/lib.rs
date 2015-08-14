@@ -13,7 +13,7 @@ use entity::{Entity, WriteEntity, ReadEntity};
 use renderer::{Renderer, DebugText};
 use name::{Name, NameSystem, FullPath, PathLookup, ChildByName, RootName};
 use config::{Config, ConfigSystem, GetConfig};
-use engine::event::{WindowEvent, Key, Action};
+use engine::event::{WindowEvent, Button};
 use engine::fibe::{Schedule, task};
 use snowstorm::channel::Receiver;
 use parent::{Parent, ParentSystem};
@@ -357,47 +357,46 @@ pub fn config_menu(sched: &mut Schedule,
 
             for msg in input.iter() {
                 match msg {
-                    &WindowEvent::Key(Key::GraveAccent, _, Action::Press, _) => {
+                    &WindowEvent::ButtonDown(Button::Grave) => {
                         show_eid.bind(Config::Bool(!show)).write(&mut router);
                     }
-                    &WindowEvent::Key(Key::Space, _, Action::Press, _) |
-                    &WindowEvent::Key(Key::Enter, _, Action::Press, _) => {
+                    &WindowEvent::ButtonDown(Button::Space) |
+                    &WindowEvent::ButtonDown(Button::Return) => {
                         toggle(&mut router);
                     }
-                    &WindowEvent::Key(Key::Up, _, Action::Press, _) |
-                    &WindowEvent::Key(Key::Up, _, Action::Repeat, _) => {
+                    &WindowEvent::ButtonDown(Button::Up) => {
                         if show {
                             move_up(&mut router);
                             moved = true;
                         }
                     }
-                    &WindowEvent::Key(Key::Down, _, Action::Press, _) |
-                    &WindowEvent::Key(Key::Down, _, Action::Repeat, _) => {
+                    &WindowEvent::ButtonDown(Button::Down) => {
                         if show {
                             move_down(&mut router);
                             moved = true;
                         }
                     }
-                    &WindowEvent::Key(Key::Right, _, Action::Press, _) |
-                    &WindowEvent::Key(Key::Right, _, Action::Repeat, _) => {
+                    &WindowEvent::ButtonDown(Button::Right) => {
                         if show {
                             value_add(&mut router, 1.);
                         }
                     }
-                    &WindowEvent::Key(Key::Left, _, Action::Press, _) |
-                    &WindowEvent::Key(Key::Left, _, Action::Repeat, _) => {
+                    &WindowEvent::ButtonDown(Button::Left) => {
                         if show {
                             value_add(&mut router, -1.);
                         }
                     }
+                    // ignore space
+                    &WindowEvent::Char(' ') => {},
+                    // ignore newline
+                    &WindowEvent::Char('\x0d') => {},
                     &WindowEvent::Char(c) => {
                         if show {
                             char_append(&mut router, c);
                             updated = true;
                         }
                     }
-                    &WindowEvent::Key(Key::Backspace, _, Action::Press, _) |
-                    &WindowEvent::Key(Key::Backspace, _, Action::Repeat, _) => {
+                    &WindowEvent::ButtonDown(Button::Back) => {
                         if show {
                             char_pop(&mut router);
                             updated = true;

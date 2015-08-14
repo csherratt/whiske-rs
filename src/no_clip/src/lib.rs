@@ -8,7 +8,7 @@ extern crate engine;
 
 use std::f32;
 use entity::Entity;
-use engine::event::{WindowEvent, Key, Action};
+use engine::event::{WindowEvent, Button};
 use transform::{TransformSystem, Local};
 use snowstorm::channel::Receiver;
 use engine::fibe::{Schedule, task};
@@ -50,28 +50,28 @@ pub fn no_clip(sched: &mut Schedule,
                         last.rot = Rotation3::from_euler(rx, ry, rz);
                         last_mouse = Some((x, y));
                     }
-                    WindowEvent::Key(Key::W, _, Action::Press, _) => {
+                    WindowEvent::ButtonDown(Button::W) => {
                         speed_foward = rate;
                     }
-                    WindowEvent::Key(Key::S, _, Action::Press, _) => {
+                    WindowEvent::ButtonDown(Button::S) => {
                         speed_foward = -rate;
                     }
-                    WindowEvent::Key(Key::W, _, Action::Release, _) => {
+                    WindowEvent::ButtonUp(Button::W) => {
                         speed_foward = 0.;
                     }
-                    WindowEvent::Key(Key::S, _, Action::Release, _) => {
+                    WindowEvent::ButtonUp(Button::S) => {
                         speed_foward = 0.;
                     }
-                    WindowEvent::Key(Key::A, _, Action::Press, _) => {
+                    WindowEvent::ButtonDown(Button::A) => {
                         speed_right = -rate;
                     }
-                    WindowEvent::Key(Key::D, _, Action::Press, _) => {
+                    WindowEvent::ButtonDown(Button::D) => {
                         speed_right = rate;
                     }
-                    WindowEvent::Key(Key::A, _, Action::Release, _) => {
+                    WindowEvent::ButtonUp(Button::A) => {
                         speed_right = 0.;
                     }
-                    WindowEvent::Key(Key::D, _, Action::Release, _) => {
+                    WindowEvent::ButtonUp(Button::D) => {
                         speed_right = 0.;
                     }
                     _ => ()

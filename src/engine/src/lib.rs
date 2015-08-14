@@ -2,8 +2,8 @@ extern crate fibe as fibers;
 extern crate snowstorm;
 extern crate gfx;
 extern crate gfx_device_gl;
-extern crate gfx_window_glfw;
-extern crate glfw;
+extern crate gfx_window_glutin;
+extern crate glutin;
 extern crate time;
 
 #[cfg(feature="virtual_reality")]
@@ -19,15 +19,12 @@ pub mod fibe {
 }
 
 use fibe::*;
-use glfw::{Context};
 
 pub use snowstorm::channel::*;
 
-pub type Window<D, R> = gfx::extra::stream::OwnedStream<D, gfx_window_glfw::Output<R>>;
+pub type Window<D, R> = gfx::extra::stream::OwnedStream<D, gfx_window_glutin::Output<R>>;
 
 pub struct Engine<D: gfx::Device, F, R: gfx::Resources> {
-    glfw: glfw::Glfw,
-    events: std::sync::mpsc::Receiver<(f64, glfw::WindowEvent)>,
     input: (Sender<WindowEvent>, Receiver<WindowEvent>),
     pool: fibe::Frontend,
     window: Window<D, R>,
@@ -40,12 +37,6 @@ pub struct RenderArgs<D: gfx::Device, F> {
     pub factory: F,
     #[cfg(feature="virtual_reality")]
     pub vr: Option<vr::IVRSystem>
-}
-
-fn common_glfw_config(glfw: &mut glfw::Glfw) {
-    glfw.window_hint(glfw::WindowHint::ContextVersion(3, 2));
-    glfw.window_hint(glfw::WindowHint::OpenGlForwardCompat(true));
-    glfw.window_hint(glfw::WindowHint::OpenGlProfile(glfw::OpenGlProfileHint::Core));
 }
 
 impl Engine<gfx_device_gl::Device,
@@ -99,18 +90,14 @@ impl Engine<gfx_device_gl::Device,
                            gfx_device_gl::Factory,
                            gfx_device_gl::Resources> {
 
-        let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
-        common_glfw_config(&mut glfw);
+        let window = glutin::WindowBuilder::new()
+            .with_title("whiske-rs".to_string())
+            .with_dimensions(800, 600)
+            .with_gl(glutin::GL_CORE)
+            .with_depth_buffer(24)
+            .build().unwrap();
 
-        let (mut window, events) = 
-            glfw.create_window(800, 600, "whiske-rs", glfw::WindowMode::Windowed).unwrap();
-
-        window.set_all_polling(true);
-        window.make_current();
-        glfw.set_swap_interval(0);
-
-
-        let (stream, device, factory) = gfx_window_glfw::init(window);
+        let (mut stream, mut device, mut factory) = gfx_window_glutin::init(window);
 
         let ra = RenderArgs {
             device: device,
@@ -118,8 +105,6 @@ impl Engine<gfx_device_gl::Device,
         };
 
         Engine {
-            glfw: glfw,
-            events: events,
             input: channel(),
             pool: fibe::Frontend::new(),
             window: stream,
@@ -177,15 +162,14 @@ impl<D, F, R> Engine<D, F, R>
         let mut render = self.render.take().expect("no render installed!");
 
         while run {
-            self.glfw.poll_events();
-            for (_, event) in glfw::flush_messages(&self.events) {
+            for event in self.window.out.window.poll_events() {
                 match event {
-                    glfw::WindowEvent::Close => {
+                    glutin::Event::Closed => {
                         run = false;
                     }
                     _ => ()
                 }
-                send.send(WindowEvent::from_glfw(event));
+                WindowEvent::from_glutin(event).map(|e| send.send(e));
             }
             send.send(WindowEvent::TimeStamp(time::precise_time_s() - start));
             send.next_frame();
