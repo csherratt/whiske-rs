@@ -332,9 +332,9 @@ impl Button {
             glutin::VirtualKeyCode::WebSearch => Button::WebSearch,
             glutin::VirtualKeyCode::WebStop => Button::WebStop,
             glutin::VirtualKeyCode::Yen => Button::Yen,
-            glutin::VirtualKeyCode::Playpause => Button::PlayPause,
-            glutin::VirtualKeyCode::Prevtrack => Button::PrevTrack,
-            glutin::VirtualKeyCode::Webback => Button::WebBack,
+            glutin::VirtualKeyCode::PlayPause => Button::PlayPause,
+            glutin::VirtualKeyCode::PrevTrack => Button::PrevTrack,
+            glutin::VirtualKeyCode::WebBack => Button::WebBack,
         }   
     }
 }

@@ -97,7 +97,7 @@ impl Engine<gfx_device_gl::Device,
             .with_depth_buffer(24)
             .build().unwrap();
 
-        let (mut stream, mut device, mut factory) = gfx_window_glutin::init(window);
+        let (stream, device, factory) = gfx_window_glutin::init(window);
 
         let ra = RenderArgs {
             device: device,

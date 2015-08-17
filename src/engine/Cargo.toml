@@ -23,7 +23,7 @@ optional = true
 [dependencies]
 gfx = "*"
 gfx_device_gl = "*"
-glutin = "0.2"
+glutin = "0.3"
 gfx_window_glutin = "*"
 time = "*"
 
