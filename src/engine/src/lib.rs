@@ -50,22 +50,20 @@ impl Engine<gfx_device_gl::Device,
                            gfx_device_gl::Factory,
                            gfx_device_gl::Resources> {
 
-        let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
-        common_glfw_config(&mut glfw);
         let vr = vr::IVRSystem::init();
 
-        let (mut window, events) = if let Ok(ref vr) = vr {
-            gfx_vr::build_window(&mut glfw, vr)
+        let window = if let Ok(ref vr) = vr {
+            gfx_vr::window::glutin::build(vr)
         } else {
-            glfw.create_window(800, 600, "whiske-rs", glfw::WindowMode::Windowed)
+            glutin::WindowBuilder::new()
+                .with_title("whiske-rs".to_string())
+                .with_dimensions(800, 600)
+                .with_gl(glutin::GL_CORE)
+                .with_depth_buffer(24)
+                .build()
         }.unwrap();
 
-        window.set_all_polling(true);
-        window.make_current();
-        glfw.set_swap_interval(1);
-
-
-        let (stream, device, factory) = gfx_window_glfw::init(window);
+        let (stream, device, factory) = gfx_window_glutin::init(window);
 
         let ra = RenderArgs {
             vr: vr.ok(),
@@ -74,8 +72,6 @@ impl Engine<gfx_device_gl::Device,
         };
 
         Engine {
-            glfw: glfw,
-            events: events,
             input: channel(),
             pool: fibe::Frontend::new(),
             window: stream,
