@@ -61,9 +61,9 @@ impl TransformData {
         }
     }
 
-    fn apply_ingest(&mut self, parent: &ParentSystem, msg: &[Operation<Entity, TransformEntry>]) {
+    fn apply_ingest(&mut self, old: &TransformData, parent: &ParentSystem, msg: &[Operation<Entity, TransformEntry>]) {
         let mut invalidate = HashMap::new();
-        self.entries.apply_updates(msg.iter().map(|x| x.clone()));
+        self.entries.clone_from_and_update(&old.entries, msg.iter().map(|x| x.clone()));
         for m in msg {
             invalidate.insert(*m.key(), None);
         }
@@ -152,15 +152,13 @@ pub fn transform(sched: &mut Schedule, parents: ParentSystem) -> TransformSystem
             let s = system.update(|mut transform, old, mut msgs| {
                 let mut p = parents.take().unwrap().next_frame().get().unwrap();
 
-                transform.clone_from(old);
-
                 let mut imsgs = sync_ingest(&mut msgs);
                 for &d in p.deleted.keys() {
                     imsgs.push(Operation::Delete(d));
                 }
                 imsgs.sort_by(|a, b| a.key().cmp(b.key()));
 
-                transform.apply_ingest(&mut p, &imsgs[..]);
+                transform.apply_ingest(&old, &p, &imsgs[..]);
                 transform.invalidate(&p, &p.modified);
                 transform.update(&mut p);
 
