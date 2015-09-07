@@ -68,6 +68,8 @@ glfw="*"
 cgmath="*"
 time="*"
 image="*"
+genmesh="*"
+noise="*"
 
 [dev-dependencies.snowstorm]
 git = "https://github.com/csherratt/snowstorm.git"

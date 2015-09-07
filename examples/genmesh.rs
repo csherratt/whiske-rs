@@ -21,7 +21,7 @@ extern crate time;
 use graphics::{
     Vertex, VertexBuffer, Geometry, Texture,
     Material, MaterialComponent, GeometryData,
-    VertexPosTexNorm, PosTexNorm, Primative
+    VertexPosTexNorm, PosTexNorm, Primative, VertexPos
 };
 use parent::{Parent, ParentSystem};
 use renderer::{DrawBinding, Camera, Primary, Renderer};
@@ -32,9 +32,10 @@ use transform::{TransformSystem, Local, World};
 use entity::Entity;
 use config_menu::config_menu;
 
-use genmesh::generators::{Plane, Cube, SphereUV};
+use genmesh::generators::{Plane, Cube, SphereUV, SharedVertex, IndexedPolygon};
 use genmesh::{MapToVertices, Indexer, LruIndexer, EmitTriangles};
 use genmesh::{Vertices, Triangulate, Quad, Polygon, MapVertex};
+use genmesh::{Neighbors, Triangle};
 
 use noise::{perlin3, Seed, Point2};
 
@@ -143,7 +144,7 @@ fn main() {
 
     let mut transform: Decomposed<f32, Vector3<f32>, Quaternion<f32>> = Decomposed::identity();
     transform.disp.z = -10f32;
-    transform.scale = 4.;
+    transform.scale = 5.;
 
 
     let mut router = sink.clone();
@@ -199,43 +200,70 @@ fn main() {
 }
 
 fn build_vectors<U, P, T: Iterator<Item=P>>(input: T) -> (graphics::Vertex, Vec<u32>)
-    where P: MapVertex<(f32, f32, f32), u32, Output=U>,
-          U: EmitTriangles<Vertex=u32>
+    where P: MapVertex<(f32, f32, f32), usize, Output=U>,
+          U: EmitTriangles<Vertex=usize>
 {
-
-    let mut mesh_data: Vec<VertexPosTexNorm> = Vec::new();
-    let index: Vec<u32> = {
-        let mut indexer = LruIndexer::new(16, |_, v| mesh_data.push(v));
+    let mut mesh_data: Vec<VertexPos> = Vec::new();
+    let index: Vec<Triangle<usize>> = {
+        let mut indexer = LruIndexer::new(65536, |_, v| mesh_data.push(v));
         input
         .vertex(|(x, y, z)| {
             let n = Vector3::new(x, y, z).normalize();
-            let v = VertexPosTexNorm {
+            let v = VertexPos {
                 position: [x, y, z],
-                texture: [0., 0.],
-                normal: [n.x, n.y, n.z]
             };
-            indexer.index(v) as u32
+            indexer.index(v)
         })
         .triangulate()
-        .vertices()
         .collect()
     };
 
-    (PosTexNorm(mesh_data), index)
+    let mut mesh: Vec<VertexPosTexNorm> = Vec::new();
+    let neighbors = Neighbors::new(mesh_data, index);
+    for (i, pos) in neighbors.vertices.iter().enumerate() {
+        let normal = neighbors.normal_for_vertex(i, |v| v.position);
+        mesh.push(VertexPosTexNorm{
+            position: pos.position,
+            texture: [0., 0.],
+            normal: normal
+        });
+    }
+    (
+        PosTexNorm(mesh),
+        neighbors.polygons.iter()
+            .map(|&p| p)
+            .vertices()
+            .map(|i| i as u32)
+            .collect()
+    )
 }
 
 fn build_sphere(seed: &Seed, xx: f32, vb: VertexBuffer, geo: Geometry, sink: &mut Router) {
-    let (plane_v, plane_i) = build_vectors(
-        SphereUV::new(32, 32).vertex(
-            |(x, y, z)| {
-                let v = Vector3::new(x, y, z).mul_s(
+    let sphere = SphereUV::new(32, 32);
+    let mut index: Vec<Triangle<usize>> = sphere.indexed_polygon_iter().triangulate().collect();
+    let mut vertices: Vec<(f32, f32, f32)> =
+        sphere.shared_vertex_iter()
+        .map(|(x, y, z)| {
+            let v = Vector3::new(x, y, z).mul_s(
                     (perlin3(seed, &[x + xx, y, z]) + 3.) / 4.
                 );
-                (v.x, v.y, v.z)
+            (v.x, v.y, v.z)
+        })
+        .collect();
+
+    let neighbors = Neighbors::new(vertices, index);
+    let vertices: Vec<VertexPosTexNorm> = neighbors.vertices.iter().enumerate()
+        .map(|(i, &(x, y, z))| {
+            VertexPosTexNorm{
+                position: [x, y, z],
+                normal: neighbors.normal_for_vertex(i, |&(x, y, z)| [x, y, z]),
+                texture: [0., 0.]
             }
-        )
-    );
-    let vb = vb.bind(plane_v).bind_index(plane_i).write(sink);
+        })
+        .collect();
+    let index: Vec<u32> = neighbors.polygons.iter().map(|&x| x).vertices().map(|x| x as u32).collect();
+
+    let vb = vb.bind(PosTexNorm(vertices)).bind_index(index).write(sink);
     geo.bind(vb.geometry(Primative::Triangle)).write(sink);
 }
 
