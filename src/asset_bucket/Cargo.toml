@@ -1,0 +1,17 @@
+[package]
+name = "whiske-rs-asset_bucket"
+version = "0.1.0"
+authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
+build = "build.rs"
+
+[lib]
+name = "asset_bucket"
+
+[dependencies.entity]
+git = "https://github.com/whiske-rs/entity.git"
+
+[dependencies]
+capnp = "*"
+
+[build_dependencies]
+capnpc = "*"
