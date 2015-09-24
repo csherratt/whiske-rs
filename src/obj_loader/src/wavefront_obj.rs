@@ -10,9 +10,10 @@ use engine::fibe::{Schedule, task};
 use future_pulse::Future;
 use graphics::{
     self, Graphics, Texture, VertexBuffer,
-    Ka, Kd, Ks, VertexPosTexNorm, Geometry, Primative,
-    PosTexNorm
+    Ka, Kd, Ks, Geometry, Primative,
 };
+use graphics::{POSITION, NORMAL, TEX0};
+use gfx_mesh::{BuildInterlaced, Attribute};
 use obj::{self, Mtl, Material};
 use genmesh::{
     Triangulate,
@@ -113,37 +114,10 @@ fn load_geometry(sched: &mut Schedule,
                     let object = object.clone();
                     let mut indexer = LruIndexer::new(64, |_, v| {
                         let (p, t, n): (usize, Option<usize>, Option<usize>) = v;
-                        let vert = match (t, n) {
-                            (Some(t), Some(n)) => {
-                                VertexPosTexNorm {
-                                    position: object.position()[p],
-                                    texture: object.texture()[t],
-                                    normal: object.normal()[n]
-                                }
-                            }
-                            (Some(t), _) => {
-                                VertexPosTexNorm {
-                                    position: object.position()[p],
-                                    texture: object.texture()[t],
-                                    normal: [1., 0., 0.]
-                                }
-                            }
-                            (_, Some(n)) => {
-                                VertexPosTexNorm {
-                                    position: object.position()[p],
-                                    texture: [0., 0.],
-                                    normal: object.normal()[n]
-                                }
-                            }
-                            (_, _) => {
-                                VertexPosTexNorm {
-                                    position: object.position()[p],
-                                    texture: [0., 0.],
-                                    normal: [1., 0., 0.]
-                                }
-                            }
-                        };
-                        vertices.push(vert)
+                        let p = object.position()[p];
+                        let t = t.map(|t| object.texture()[t]).unwrap_or([0., 0.]);
+                        let n = n.map(|n| object.normal()[n]).unwrap_or([1., 0., 0.]);
+                        vertices.push((p, n, t))
                     });
 
                     idx.iter()
@@ -154,8 +128,13 @@ fn load_geometry(sched: &mut Schedule,
                        .collect()
                 };
 
+                let vertices = [Attribute::f32(POSITION, 3), Attribute::f32(NORMAL, 3), Attribute::f32(TEX0, 2)]
+                    .build(vertices.into_iter())
+                    .unwrap()
+                    .owned_attributes();
+
                 let vb = VertexBuffer::new()
-                    .bind(PosTexNorm(vertices))
+                    .bind(vertices)
                     .bind_index(indices)
                     .write(&mut src);
 

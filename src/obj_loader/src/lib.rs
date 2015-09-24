@@ -6,6 +6,7 @@ extern crate pulse;
 extern crate image;
 extern crate genmesh;
 extern crate obj;
+extern crate gfx_mesh;
 
 use std::collections::HashMap;
 use std::path::PathBuf;

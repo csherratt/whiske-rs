@@ -17,11 +17,11 @@ extern crate config_menu;
 extern crate genmesh;
 extern crate noise;
 extern crate time;
+extern crate gfx_mesh;
 
 use graphics::{
     Vertex, VertexBuffer, Geometry, Texture,
-    Material, MaterialComponent, GeometryData,
-    VertexPosTexNorm, PosTexNorm, Primative, VertexPos
+    Material, MaterialComponent, GeometryData, Primative
 };
 use parent::{Parent, ParentSystem};
 use renderer::{DrawBinding, Camera, Primary, Renderer};
@@ -38,6 +38,8 @@ use genmesh::{Vertices, Triangulate, Quad, Polygon, MapVertex};
 use genmesh::{Neighbors, Triangle};
 
 use noise::{perlin3, Seed, Point2};
+use gfx_mesh::{Attribute, BuildInterlaced};
+use graphics::{POSITION, NORMAL, TEX0};
 
 router!{
     struct Router {
@@ -199,44 +201,6 @@ fn main() {
     engine.run();
 }
 
-fn build_vectors<U, P, T: Iterator<Item=P>>(input: T) -> (graphics::Vertex, Vec<u32>)
-    where P: MapVertex<(f32, f32, f32), usize, Output=U>,
-          U: EmitTriangles<Vertex=usize>
-{
-    let mut mesh_data: Vec<VertexPos> = Vec::new();
-    let index: Vec<Triangle<usize>> = {
-        let mut indexer = LruIndexer::new(65536, |_, v| mesh_data.push(v));
-        input
-        .vertex(|(x, y, z)| {
-            let n = Vector3::new(x, y, z).normalize();
-            let v = VertexPos {
-                position: [x, y, z],
-            };
-            indexer.index(v)
-        })
-        .triangulate()
-        .collect()
-    };
-
-    let mut mesh: Vec<VertexPosTexNorm> = Vec::new();
-    let neighbors = Neighbors::new(mesh_data, index);
-    for (i, pos) in neighbors.vertices.iter().enumerate() {
-        let normal = neighbors.normal_for_vertex(i, |v| v.position);
-        mesh.push(VertexPosTexNorm{
-            position: pos.position,
-            texture: [0., 0.],
-            normal: normal
-        });
-    }
-    (
-        PosTexNorm(mesh),
-        neighbors.polygons.iter()
-            .map(|&p| p)
-            .vertices()
-            .map(|i| i as u32)
-            .collect()
-    )
-}
 
 fn build_sphere(seed: &Seed, xx: f32, vb: VertexBuffer, geo: Geometry, sink: &mut Router) {
     let sphere = SphereUV::new(32, 32);
@@ -252,18 +216,22 @@ fn build_sphere(seed: &Seed, xx: f32, vb: VertexBuffer, geo: Geometry, sink: &mu
         .collect();
 
     let neighbors = Neighbors::new(vertices, index);
-    let vertices: Vec<VertexPosTexNorm> = neighbors.vertices.iter().enumerate()
-        .map(|(i, &(x, y, z))| {
-            VertexPosTexNorm{
-                position: [x, y, z],
-                normal: neighbors.normal_for_vertex(i, |&(x, y, z)| [x, y, z]),
-                texture: [0., 0.]
-            }
-        })
-        .collect();
+    let vertices = [Attribute::f32(POSITION, 3), Attribute::f32(NORMAL, 3), Attribute::f32(TEX0, 2)]
+        .build(
+            neighbors.vertices.iter().enumerate()
+                .map(|(i, &(x, y, z))| {
+                    ([x, y, z],
+                     neighbors.normal_for_vertex(i, |&(x, y, z)| [x, y, z]),
+                     [0f32, 0f32])
+                })
+        )
+        .unwrap()
+        .owned_attributes();
+
+
     let index: Vec<u32> = neighbors.polygons.iter().map(|&x| x).vertices().map(|x| x as u32).collect();
 
-    let vb = vb.bind(PosTexNorm(vertices)).bind_index(index).write(sink);
+    let vb = vb.bind(vertices).bind_index(index).write(sink);
     geo.bind(vb.geometry(Primative::Triangle)).write(sink);
 }
 

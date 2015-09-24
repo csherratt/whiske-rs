@@ -32,3 +32,5 @@ git = "https://github.com/csherratt/lease.git"
 [dependencies.shared_future]
 git = "https://github.com/csherratt/shared_future.git"
 
+[dependencies.gfx_mesh]
+git = "https://github.com/csherratt/gfx_mesh.git"

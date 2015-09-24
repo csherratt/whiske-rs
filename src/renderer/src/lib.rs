@@ -22,6 +22,7 @@ extern crate gfx_text;
 #[cfg(feature="virtual_reality")]
 extern crate gfx_vr;
 extern crate gfx_scene_aabb_debug;
+extern crate gfx_mesh;
 
 extern crate engine;
 extern crate draw_queue;
@@ -38,7 +39,6 @@ use std::collections::{HashMap, HashSet};
 use transform::TransformSystem;
 use graphics::{
     Graphics, Texture, Geometry,
-    Pos, PosTex, PosNorm, PosTexNorm,
 };
 use scene::{Scene, SceneSystem};
 use engine::Window;
@@ -55,6 +55,7 @@ use gfx_scene::{AbstractScene, Report, Error, Context, Frustum};
 use gfx_pipeline::{Material, Transparency, forward, Pipeline};
 use gfx::device::Resources;
 use image::GenericImage;
+use gfx_mesh::IntoMesh;
 use cgmath::{Transform, AffineMatrix3, Matrix4, Aabb3};
 
 #[cfg(feature="virtual_reality")]
@@ -415,12 +416,7 @@ fn update_vertex_buffer<R, F>(factory: &mut F,
 {
     let (vertex, index) = {
         let v = graphics.vertex_buffer.get(&id).unwrap();
-        let vertex = match v.vertex {
-            Pos(ref data) => factory.create_mesh(&data[..]),
-            PosTex(ref data) => factory.create_mesh(&data[..]),
-            PosNorm(ref data) => factory.create_mesh(&data[..]),
-            PosTexNorm(ref data) => factory.create_mesh(&data[..])
-        };
+        let vertex = v.vertex.into_mesh(factory);
         let index = v.index.as_ref().map(|data|
             factory.create_buffer_static(&data, BufferRole::Index)
         );

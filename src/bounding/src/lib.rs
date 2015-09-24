@@ -29,24 +29,26 @@ fn to_point3(p: [f32; 3]) -> Point3<f32> {
 }
 
 fn create_aabb(geo: &GeometryData, vb: &VertexBufferData) -> Aabb3<f32> {
+    let position = vb.vertex.attribute_reader(0).unwrap();
+
     match vb.index {
         Some(ref index) => {
-            let (first, _, _) = vb.vertex.index(index[geo.buffer.start as usize] as usize);
+            let first = position[index[geo.buffer.start as usize] as usize];
             let mut aabb = Aabb3::new(to_point3(first), to_point3(first));
 
             for i in (geo.buffer.start+1)..(geo.buffer.start + geo.buffer.length) {
-                let (pos, _, _) = vb.vertex.index(index[i as usize] as usize);
+                let pos = position[index[i as usize] as usize];
                 aabb = aabb.grow(&to_point3(pos));
             }
 
             aabb
         }
         None => {
-            let (first, _, _) = vb.vertex.index(geo.buffer.start as usize);
+            let first = position[geo.buffer.start as usize];
             let mut aabb = Aabb3::new(to_point3(first), to_point3(first));
 
             for i in (geo.buffer.start+1)..(geo.buffer.start + geo.buffer.length) {
-                let (pos, _, _) = vb.vertex.index(i as usize);
+                let pos = position[i as usize];
                 aabb = aabb.grow(&to_point3(pos));
             }
 

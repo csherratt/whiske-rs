@@ -28,6 +28,9 @@ path = "../graphics"
 [dependencies.future_pulse]
 git = "https://github.com/slide-rs/future_pulse.git"
 
+[dependencies.gfx_mesh]
+git = "https://github.com/csherratt/gfx_mesh.git"
+
 [dependencies.collada]
 git = "https://github.com/PistonDevelopers/piston_collada.git"
 

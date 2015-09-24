@@ -20,10 +20,11 @@ extern crate future_pulse;
 extern crate genmesh;
 extern crate pulse;
 extern crate image;
+extern crate gfx_mesh;
 
 use image::{DynamicImage, Rgba, GenericImage};
 
-use graphics::{Vertex, VertexPosTexNorm, PosTexNorm, VertexBuffer,
+use graphics::{Vertex, VertexBuffer,
     Geometry, Material, Primative, Kd, Graphics, Texture
 };
 
@@ -34,35 +35,39 @@ use cgmath::{Vector3, EuclideanVector};
 
 use engine::fibe::{Schedule, task};
 use future_pulse::Future;
+use gfx_mesh::Attribute;
 
-fn build_vectors<T: Iterator<Item=Quad<VertexPosTexNorm>>>(input: T)
-    -> (graphics::Vertex, Vec<u32>) {
 
-    let mut mesh_data: Vec<VertexPosTexNorm> = Vec::new();
+type Out = ([f32; 3], [f32; 3], [f32; 2]);
+
+fn build_vectors<T>(input: T) -> (Vec<Out>, Vec<u32>)
+    where T: Iterator<Item=Quad<Out>>
+{
+    let mut mesh_data: Vec<Out> = Vec::new();
     let index: Vec<u32> = {
         let mut indexer = LruIndexer::new(16, |_, v| mesh_data.push(v));
         input.map(|mut p| {
-            let a = Vector3::new(p.x.position[0],
-                                 p.x.position[1],
-                                 p.x.position[2]);
-            let b = Vector3::new(p.y.position[0],
-                                 p.y.position[1],
-                                 p.y.position[2]);
-            let c = Vector3::new(p.z.position[0],
-                                 p.z.position[1],
-                                 p.z.position[2]);
+            let a = Vector3::new(p.x.0[0],
+                                 p.x.0[1],
+                                 p.x.0[2]);
+            let b = Vector3::new(p.y.0[0],
+                                 p.y.0[1],
+                                 p.y.0[2]);
+            let c = Vector3::new(p.z.0[0],
+                                 p.z.0[1],
+                                 p.z.0[2]);
 
             let normal = (a - b).cross(&(b - c)).normalize();
 
-            p.x.normal = [normal.x, normal.y, normal.z];
-            p.y.normal = [normal.x, normal.y, normal.z];
-            p.z.normal = [normal.x, normal.y, normal.z];
-            p.w.normal = [normal.x, normal.y, normal.z];
+            p.x.1 = [normal.x, normal.y, normal.z];
+            p.y.1 = [normal.x, normal.y, normal.z];
+            p.z.1 = [normal.x, normal.y, normal.z];
+            p.w.1 = [normal.x, normal.y, normal.z];
 
-            p.x.texture = [0., 1.];
-            p.y.texture = [1., 1.];
-            p.z.texture = [1., 0.];
-            p.w.texture = [0., 0.];
+            p.x.2 = [0., 1.];
+            p.y.2 = [1., 1.];
+            p.z.2 = [1., 0.];
+            p.w.2 = [0., 0.];
 
             p
         })
@@ -72,23 +77,19 @@ fn build_vectors<T: Iterator<Item=Quad<VertexPosTexNorm>>>(input: T)
         .collect()
     };
 
-    (PosTexNorm(mesh_data), index)
+    (mesh_data, index)
 }
 
-fn build_vectors_poly<T: Iterator<Item=Polygon<(f32, f32, f32)>>>(input: T)
-    -> (graphics::Vertex, Vec<u32>) {
-
-    let mut mesh_data: Vec<VertexPosTexNorm> = Vec::new();
+fn build_vectors_poly<T>(input: T) -> (Vec<Out>, Vec<u32>) 
+    where T: Iterator<Item=Polygon<(f32, f32, f32)>>
+{
+    let mut mesh_data: Vec<Out> = Vec::new();
     let index: Vec<u32> = {
         let mut indexer = LruIndexer::new(16, |_, v| mesh_data.push(v));
         input
         .vertex(|(x, y, z)| {
             let n = Vector3::new(x, y, z).normalize();
-            VertexPosTexNorm {
-                position: [x, y, z],
-                texture: [0., 0.],
-                normal: [n.x, n.y, n.z]
-            }
+            ([x, y, z], [n.x, n.y, n.z], [0., 0.])
         })
         .vertex(|v| indexer.index(v) as u32)
         .triangulate()
@@ -96,7 +97,7 @@ fn build_vectors_poly<T: Iterator<Item=Polygon<(f32, f32, f32)>>>(input: T)
         .collect()
     };
 
-    (PosTexNorm(mesh_data), index)
+    (mesh_data, index)
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -186,10 +187,19 @@ pub struct StdGeometry {
     pub sphere: Spheres,
 }
 
+fn to_vertex(v: Vec<Out>) -> graphics::Vertex {
+    use graphics::{POSITION, NORMAL, TEX0};
+    use gfx_mesh::BuildInterlaced;
+    [Attribute::f32(POSITION, 3), Attribute::f32(NORMAL, 3), Attribute::f32(TEX0, 2)]
+        .build(v.into_iter())
+        .unwrap()
+        .owned_attributes()
+}
+
 fn build_sphere(mut sink: Graphics, size: usize) -> Geometry {
     let (sphere_v, sphere_i) = build_vectors_poly(SphereUV::new(size, size));
     let vb = VertexBuffer::new()
-                          .bind(sphere_v)
+                          .bind(to_vertex(sphere_v))
                           .bind_index(sphere_i)
                           .write(&mut sink);
     Geometry::new()
@@ -219,16 +229,12 @@ impl StdGeometry {
         let mut g = sink.clone();
         let cube = task(move |_| {
             let (cube_v, cube_i) = build_vectors(
-                Cube::new().vertex(|(x, y, z)| {
-                    VertexPosTexNorm {
-                        position: [x, y, z],
-                        texture: [0., 0.],
-                        normal: [0., 0., 0.]
-                    }
-                }
-            ));
+                Cube::new().vertex(|(x, y, z)|
+                    ([x, y, z], [0., 0., 0.], [0., 0.])
+                )
+            );
             let vb = VertexBuffer::new()
-                                  .bind(cube_v)
+                                  .bind(to_vertex(cube_v))
                                   .bind_index(cube_i)
                                   .write(&mut g);
             Geometry::new().bind(vb.geometry(Primative::Triangle)).write(&mut g)
@@ -236,16 +242,12 @@ impl StdGeometry {
 
         let plane = task(move |_| {
             let (plane_v, plane_i) = build_vectors(
-                Plane::new().vertex(|(x, y)| {
-                    VertexPosTexNorm {
-                        position: [x, y, 0.],
-                        texture: [0., 0.],
-                        normal: [0., 0., 0.]
-                    }
-                }
-            ));
+                Plane::new().vertex(|(x, y)|
+                    ([x, y, 0.], [0., 0., 0.], [0., 0.])
+                )
+            );
             let vb = VertexBuffer::new()
-                                  .bind(plane_v)
+                                  .bind(to_vertex(plane_v))
                                   .bind_index(plane_i)
                                   .write(&mut sink);
             Geometry::new().bind(vb.geometry(Primative::Triangle)).write(&mut sink)

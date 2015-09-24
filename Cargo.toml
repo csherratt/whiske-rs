@@ -83,6 +83,9 @@ git = "https://github.com/whiske-rs/entity.git"
 [dev-dependencies.future_pulse]
 git = "https://github.com/csherratt/future_pulse.git"
 
+[dev-dependencies.gfx_mesh]
+git = "https://github.com/csherratt/gfx_mesh.git"
+
 
 [features]
 virtual_reality = ["whiske-rs-engine/virtual_reality",

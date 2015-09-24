@@ -1,4 +1,5 @@
 
+use gfx_mesh::{Interlaced, Attribute};
 use entity::{Entity, WriteEntity, Append, EntityBinding, DeleteEntity};
 
 // Wrapper to get the length of a buffer
@@ -14,12 +15,7 @@ impl<T> GetLength for Vec<T> {
 
 impl GetLength for Vertex {
     fn length(&self) -> Length {
-        Length::Length(match self {
-            &Vertex::Pos(ref x)         => x.len(),
-            &Vertex::PosTex(ref x)      => x.len(),
-            &Vertex::PosNorm(ref x)     => x.len(),
-            &Vertex::PosTexNorm(ref x)  => x.len()
-        } as u32)
+        Length::Length(self.len() as u32)
     }
 }
 
@@ -157,70 +153,4 @@ pub struct VertexSubBuffer {
     pub length: u32,
 }
 
-gfx_vertex!( VertexPos {
-    a_Position@ position: [f32; 3],
-});
-
-impl PartialEq for VertexPos {
-    fn eq(&self, other: &VertexPos) -> bool {
-        self.position == other.position
-    }
-}
-
-gfx_vertex!( VertexPosNorm {
-    a_Position@ position: [f32; 3],
-    a_Normal@ normal: [f32; 3],
-});
-
-impl PartialEq for VertexPosNorm {
-    fn eq(&self, other: &VertexPosNorm) -> bool {
-        self.position == other.position &&
-        self.normal == other.normal
-    }
-}
-
-gfx_vertex!( VertexPosTex {
-    a_Position@ position: [f32; 3],
-    a_Tex0@ texture: [f32; 2],
-});
-
-impl PartialEq for VertexPosTex {
-    fn eq(&self, other: &VertexPosTex) -> bool {
-        self.position == other.position &&
-        self.texture == other.texture
-    }
-}
-
-gfx_vertex!( VertexPosTexNorm {
-    a_Position@ position: [f32; 3],
-    a_Normal@ normal: [f32; 3],
-    a_Tex0@ texture: [f32; 2],
-});
-
-impl PartialEq for VertexPosTexNorm {
-    fn eq(&self, other: &VertexPosTexNorm) -> bool {
-        self.position == other.position &&
-        self.texture == other.texture &&
-        self.normal == other.normal
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum Vertex {
-    Pos(Vec<VertexPos>),
-    PosTex(Vec<VertexPosTex>),
-    PosNorm(Vec<VertexPosNorm>),
-    PosTexNorm(Vec<VertexPosTexNorm>),
-}
-pub use self::Vertex::*;
-
-impl Vertex {
-    pub fn index(&self, idx: usize) -> ([f32; 3], Option<[f32; 2]>, Option<[f32; 3]>) {
-        match self {
-            &Pos(ref v) => (v[idx].position, None, None),
-            &PosTex(ref v) => (v[idx].position, Some(v[idx].texture), None),
-            &PosNorm(ref v) => (v[idx].position, None, Some(v[idx].normal)),
-            &PosTexNorm(ref v) => (v[idx].position, Some(v[idx].texture), Some(v[idx].normal)),
-        }
-    }
-}
+pub type Vertex = Interlaced<Vec<Attribute<String>>, String, Vec<u8>>;

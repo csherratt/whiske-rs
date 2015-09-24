@@ -6,6 +6,7 @@ extern crate future_pulse;
 extern crate image;
 #[macro_use]
 extern crate gfx;
+extern crate gfx_mesh;
 extern crate shared_future;
 extern crate lease;
 extern crate engine;
@@ -17,6 +18,7 @@ use engine::fibe::*;
 
 use entity::*;
 use snowstorm::mpsc::*;
+use gfx_mesh::Interlaced;
 
 pub use material::*;
 pub use texture::Texture;
@@ -26,7 +28,11 @@ pub mod material;
 pub mod texture;
 pub mod vertex;
 
-impl FromIterator<VertexPos> for Vertex {
+pub const POSITION: &'static str =  "a_Position";
+pub const NORMAL: &'static str = "a_Normal";
+pub const TEX0: &'static str = "a_Tex0";
+
+/*impl FromIterator<VertexPos> for Vertex {
     fn from_iter<T>(iter: T) -> Vertex where T: IntoIterator<Item=VertexPos> {
         Pos(iter.into_iter().collect())
     }
@@ -48,7 +54,7 @@ impl FromIterator<VertexPosTexNorm> for Vertex {
     fn from_iter<T>(iter: T) -> Vertex where T: IntoIterator<Item=VertexPosTexNorm> {
         PosTexNorm(iter.into_iter().collect())
     }
-}
+}*/
 
 impl VertexBuffer {
     /// Use the entire vertex buffer with the primative as a geometry
@@ -305,7 +311,7 @@ impl GraphicsStore {
         let dst = self.vertex_buffer
             .entry(id.0)
             .or_insert_with(|| VertexBufferData{
-                vertex: Vertex::Pos(vec![]),
+                vertex: Interlaced::new(vec![], vec![]).unwrap(),
                 index: None
             });
 
