@@ -28,8 +28,12 @@ fn to_point3(p: [f32; 3]) -> Point3<f32> {
     Point3::new(p[0], p[1], p[2])
 }
 
-fn create_aabb(geo: &GeometryData, vb: &VertexBufferData) -> Aabb3<f32> {
-    let position = vb.vertex.attribute_reader(0).unwrap();
+fn create_aabb(geo: &GeometryData, vb: &VertexBufferData) -> Option<Aabb3<f32>> {
+    if vb.vertex.len() == 0 {
+        return None;
+    }
+    let position = vb.vertex[0].attribute_reader(0).unwrap();
+
 
     match vb.index {
         Some(ref index) => {
@@ -41,7 +45,7 @@ fn create_aabb(geo: &GeometryData, vb: &VertexBufferData) -> Aabb3<f32> {
                 aabb = aabb.grow(&to_point3(pos));
             }
 
-            aabb
+            Some(aabb)
         }
         None => {
             let first = position[geo.buffer.start as usize];
@@ -52,7 +56,7 @@ fn create_aabb(geo: &GeometryData, vb: &VertexBufferData) -> Aabb3<f32> {
                 aabb = aabb.grow(&to_point3(pos));
             }
 
-            aabb
+            Some(aabb)
         }
     }
 }
@@ -92,7 +96,7 @@ impl BoundingStore {
                         .insert(*geo);
 
                     // ok now we have the VB we an created the geometry
-                    Some(create_aabb(gdat, vb))
+                    create_aabb(gdat, vb)
                 } else {
                     None
                 }

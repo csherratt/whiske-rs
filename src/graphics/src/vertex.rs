@@ -21,7 +21,7 @@ impl GetLength for Vertex {
 
 #[derive(Clone, Debug)]
 pub struct VertexBufferData {
-    pub vertex: Vertex,
+    pub vertex: Vec<Vertex>,
     pub index: Option<Vec<u32>>
 }
 

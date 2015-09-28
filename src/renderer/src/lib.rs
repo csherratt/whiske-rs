@@ -49,7 +49,7 @@ use gfx::{
     Mesh, handle, BufferRole, Factory,
     Slice, PrimitiveType, SliceKind,
 };
-use gfx::traits::{FactoryExt, Stream};
+use gfx::traits::Stream;
 use gfx_device_gl::{Device};
 use gfx_scene::{AbstractScene, Report, Error, Context, Frustum};
 use gfx_pipeline::{Material, Transparency, forward, Pipeline};
@@ -416,7 +416,7 @@ fn update_vertex_buffer<R, F>(factory: &mut F,
 {
     let (vertex, index) = {
         let v = graphics.vertex_buffer.get(&id).unwrap();
-        let vertex = v.vertex.into_mesh(factory);
+        let vertex = (&v.vertex[..]).into_mesh(factory);
         let index = v.index.as_ref().map(|data|
             factory.create_buffer_static(&data, BufferRole::Index)
         );

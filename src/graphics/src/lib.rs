@@ -11,14 +11,12 @@ extern crate shared_future;
 extern crate lease;
 extern crate engine;
 
-use std::iter::FromIterator;
 use std::collections::HashMap;
 
 use engine::fibe::*;
 
 use entity::*;
 use snowstorm::mpsc::*;
-use gfx_mesh::Interlaced;
 
 pub use material::*;
 pub use texture::Texture;
@@ -31,30 +29,6 @@ pub mod vertex;
 pub const POSITION: &'static str =  "a_Position";
 pub const NORMAL: &'static str = "a_Normal";
 pub const TEX0: &'static str = "a_Tex0";
-
-/*impl FromIterator<VertexPos> for Vertex {
-    fn from_iter<T>(iter: T) -> Vertex where T: IntoIterator<Item=VertexPos> {
-        Pos(iter.into_iter().collect())
-    }
-}
-
-impl FromIterator<VertexPosTex> for Vertex {
-    fn from_iter<T>(iter: T) -> Vertex where T: IntoIterator<Item=VertexPosTex> {
-        PosTex(iter.into_iter().collect())
-    }
-}
-
-impl FromIterator<VertexPosNorm> for Vertex {
-    fn from_iter<T>(iter: T) -> Vertex where T: IntoIterator<Item=VertexPosNorm> {
-        PosNorm(iter.into_iter().collect())
-    }
-}
-
-impl FromIterator<VertexPosTexNorm> for Vertex {
-    fn from_iter<T>(iter: T) -> Vertex where T: IntoIterator<Item=VertexPosTexNorm> {
-        PosTexNorm(iter.into_iter().collect())
-    }
-}*/
 
 impl VertexBuffer {
     /// Use the entire vertex buffer with the primative as a geometry
@@ -139,7 +113,7 @@ impl VertexSubBuffer {
 
 #[derive(Clone, Debug)]
 pub enum VertexComponent {
-    Vertex(Vertex),
+    Vertex(Vec<Vertex>),
     Index(Vec<u32>)
 }
 
@@ -155,6 +129,14 @@ pub enum Message {
 
 impl WriteEntity<VertexBuffer, Vertex> for Graphics {
     fn write(&mut self, entity: VertexBuffer, data: Vertex) {
+        self.send(Message::Vertex(
+            Operation::Upsert(entity, VertexComponent::Vertex(vec![data]))
+        ))
+    }
+}
+
+impl WriteEntity<VertexBuffer, Vec<Vertex>> for Graphics {
+    fn write(&mut self, entity: VertexBuffer, data: Vec<Vertex>) {
         self.send(Message::Vertex(
             Operation::Upsert(entity, VertexComponent::Vertex(data))
         ))
@@ -220,6 +202,12 @@ impl WriteEntity<Texture, image::DynamicImage> for Graphics {
 
 impl ReadEntity<VertexBuffer, Vertex> for GraphicsStore {
     fn read(&self, eid: &VertexBuffer) -> Option<&Vertex> {
+        self.vertex_buffer.get(&eid.0).and_then(|v| v.vertex.get(0))
+    }
+}
+
+impl ReadEntity<VertexBuffer, Vec<Vertex>> for GraphicsStore {
+    fn read(&self, eid: &VertexBuffer) -> Option<&Vec<Vertex>> {
         self.vertex_buffer.get(&eid.0).map(|v| &v.vertex)
     }
 }
@@ -311,7 +299,7 @@ impl GraphicsStore {
         let dst = self.vertex_buffer
             .entry(id.0)
             .or_insert_with(|| VertexBufferData{
-                vertex: Interlaced::new(vec![], vec![]).unwrap(),
+                vertex: vec![],
                 index: None
             });
 
