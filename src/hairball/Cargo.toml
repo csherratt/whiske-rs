@@ -15,6 +15,9 @@ path = "../graphics/"
 [dependencies.whiske-rs-parent]
 path = "../parent/"
 
+[dependencies.whiske-rs-renderer]
+path = "../renderer/"
+
 [dependencies.entity]
 git = "https://github.com/whiske-rs/entity.git"
 

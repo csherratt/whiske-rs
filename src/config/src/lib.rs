@@ -101,7 +101,7 @@ impl<'a, T> GetConfig<'a> for T
 {
     fn config_bool(&self, item: &'a str) -> Option<bool> {
         self.lookup(item)
-            .and_then(|eid| self.read(eid))
+            .and_then(|eid| self.read(&eid))
             .and_then(|config| {
                 if let &Config::Bool(b) = config {
                     Some(b)
@@ -113,7 +113,7 @@ impl<'a, T> GetConfig<'a> for T
 
     fn config_f64(&self, item: &'a str) -> Option<f64> {
         self.lookup(item)
-            .and_then(|eid| self.read(eid))
+            .and_then(|eid| self.read(&eid))
             .and_then(|config| {
                 if let &Config::Float(f) = config {
                     Some(f)
@@ -125,7 +125,7 @@ impl<'a, T> GetConfig<'a> for T
 
     fn config_string(&self, item: &'a str) -> Option<&str> {
         self.lookup(item)
-            .and_then(|eid| self.read(eid))
+            .and_then(|eid| self.read(&eid))
             .and_then(|config| {
                 if let &Config::String(ref s) = config {
                     Some(&s[..])

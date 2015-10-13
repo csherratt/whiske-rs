@@ -131,7 +131,13 @@ fn main() {
     let mut args = args(); args.next();
     let map = args.next().expect("Please supply a path");
 
-    hairball::load(PathBuf::from(map), &mut sink).unwrap();
+    let eids = hairball::load(PathBuf::from(map), &mut sink).unwrap();
+    for eid in eids {
+        let comp = Decomposed::identity();
+        eid.bind(scene)
+           .bind(Local(comp))
+           .write(&mut sink);
+    }
 
     let camera = Entity::new();
     camera.bind(Primary)

@@ -85,6 +85,8 @@ impl TransformData {
                 if !v.dirty {
                     return v.world.0;
                 }
+            } else {
+                return Decomposed::identity();
             }
 
             // check to see if I have a parent

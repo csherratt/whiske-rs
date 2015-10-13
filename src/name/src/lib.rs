@@ -240,14 +240,14 @@ impl<'a> entity::ReadEntity<RootName<'a>, Entity> for NameSystem {
 pub type NameSystem = system::SystemHandle<Message, NameData>;
 
 pub trait PathLookup<'a> {
-    fn lookup(&self, path: &'a str) -> Option<&Entity>;
+    fn lookup(&self, path: &'a str) -> Option<Entity>;
 }
 
 impl<'a, T> PathLookup<'a> for T
     where T: ReadEntity<RootName<'a>, Entity> +
              ReadEntity<ChildByName<'a>, Entity> 
 {
-    fn lookup(&self, path: &'a str) -> Option<&Entity> {
+    fn lookup(&self, path: &'a str) -> Option<Entity> {
         let mut path: std::str::Split<'a, char> = path.split('.');
 
         let root_path = if let Some(path) = path.next() {
@@ -266,7 +266,7 @@ impl<'a, T> PathLookup<'a> for T
             let p = if let Some(p) = path.next() {
                 p
             } else {
-                return Some(node);
+                return Some(*node);
             };
 
             node = if let Some(eid) = self.read(&ChildByName(*node, p)) {

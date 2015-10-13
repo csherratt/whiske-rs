@@ -111,10 +111,10 @@ fn lookup_path() {
 
     rtr = rtr.next_frame();
 
-    assert_eq!(&parent, rtr.name.lookup("foo").unwrap());
-    assert_eq!(&child0, rtr.name.lookup("foo.bar").unwrap());
-    assert_eq!(&child1, rtr.name.lookup("foo.baz").unwrap());
-    assert_eq!(&child2, rtr.name.lookup("foo.bar.baz").unwrap());
+    assert_eq!(parent, rtr.name.lookup("foo").unwrap());
+    assert_eq!(child0, rtr.name.lookup("foo.bar").unwrap());
+    assert_eq!(child1, rtr.name.lookup("foo.baz").unwrap());
+    assert_eq!(child2, rtr.name.lookup("foo.bar.baz").unwrap());
     assert_eq!(None, rtr.name.lookup("foo.bar."));
     assert_eq!(None, rtr.name.lookup("foo.ba"));
     assert_eq!(None, rtr.name.lookup("foo."));
@@ -150,17 +150,17 @@ fn lookup_path_delete() {
 
     rtr = rtr.next_frame();
 
-    assert_eq!(&parent, rtr.name.lookup("foo").unwrap());
-    assert_eq!(&child0, rtr.name.lookup("foo.bar").unwrap());
-    assert_eq!(&child1, rtr.name.lookup("foo.baz").unwrap());
-    assert_eq!(&child2, rtr.name.lookup("foo.bar.baz").unwrap());
+    assert_eq!(parent, rtr.name.lookup("foo").unwrap());
+    assert_eq!(child0, rtr.name.lookup("foo.bar").unwrap());
+    assert_eq!(child1, rtr.name.lookup("foo.baz").unwrap());
+    assert_eq!(child2, rtr.name.lookup("foo.bar.baz").unwrap());
 
     rtr.parent.delete(child2);
     rtr = rtr.next_frame();
 
-    assert_eq!(&parent, rtr.name.lookup("foo").unwrap());
-    assert_eq!(&child0, rtr.name.lookup("foo.bar").unwrap());
-    assert_eq!(&child1, rtr.name.lookup("foo.baz").unwrap());
+    assert_eq!(parent, rtr.name.lookup("foo").unwrap());
+    assert_eq!(child0, rtr.name.lookup("foo.bar").unwrap());
+    assert_eq!(child1, rtr.name.lookup("foo.baz").unwrap());
     assert_eq!(None, rtr.name.lookup("foo.bar.baz"));
 
     rtr.parent.delete(parent);
@@ -201,17 +201,17 @@ fn delete() {
 
     rtr = rtr.next_frame();
 
-    assert_eq!(&parent, rtr.name.lookup("foo").unwrap());
-    assert_eq!(&child0, rtr.name.lookup("foo.bar").unwrap());
-    assert_eq!(&child1, rtr.name.lookup("foo.baz").unwrap());
-    assert_eq!(&child2, rtr.name.lookup("foo.bar.baz").unwrap());
+    assert_eq!(parent, rtr.name.lookup("foo").unwrap());
+    assert_eq!(child0, rtr.name.lookup("foo.bar").unwrap());
+    assert_eq!(child1, rtr.name.lookup("foo.baz").unwrap());
+    assert_eq!(child2, rtr.name.lookup("foo.bar.baz").unwrap());
 
     rtr.parent.delete(child2);
     rtr = rtr.next_frame();
 
-    assert_eq!(&parent, rtr.name.lookup("foo").unwrap());
-    assert_eq!(&child0, rtr.name.lookup("foo.bar").unwrap());
-    assert_eq!(&child1, rtr.name.lookup("foo.baz").unwrap());
+    assert_eq!(parent, rtr.name.lookup("foo").unwrap());
+    assert_eq!(child0, rtr.name.lookup("foo.bar").unwrap());
+    assert_eq!(child1, rtr.name.lookup("foo.baz").unwrap());
     assert_eq!(None, rtr.name.lookup("foo.bar.baz"));
 
     rtr.parent.delete(parent);
@@ -255,30 +255,30 @@ fn change_parent() {
         .write(&mut rtr);
     rtr = rtr.next_frame();
 
-    assert_eq!(&parent, rtr.name.lookup("foo").unwrap());
-    assert_eq!(&child0, rtr.name.lookup("foo.bar").unwrap());
-    assert_eq!(&child1, rtr.name.lookup("foo.baz").unwrap());
-    assert_eq!(&child2, rtr.name.lookup("foo.bar.cat").unwrap());
-    assert_eq!(&child3, rtr.name.lookup("foo.bar.dog").unwrap());
+    assert_eq!(parent, rtr.name.lookup("foo").unwrap());
+    assert_eq!(child0, rtr.name.lookup("foo.bar").unwrap());
+    assert_eq!(child1, rtr.name.lookup("foo.baz").unwrap());
+    assert_eq!(child2, rtr.name.lookup("foo.bar.cat").unwrap());
+    assert_eq!(child3, rtr.name.lookup("foo.bar.dog").unwrap());
 
     child2.bind(Parent::Child(parent)).write(&mut rtr);
     rtr = rtr.next_frame();
 
-    assert_eq!(&parent, rtr.name.lookup("foo").unwrap());
-    assert_eq!(&child0, rtr.name.lookup("foo.bar").unwrap());
-    assert_eq!(&child1, rtr.name.lookup("foo.baz").unwrap());
-    assert_eq!(&child2, rtr.name.lookup("foo.cat").unwrap());
-    assert_eq!(&child3, rtr.name.lookup("foo.bar.dog").unwrap());
+    assert_eq!(parent, rtr.name.lookup("foo").unwrap());
+    assert_eq!(child0, rtr.name.lookup("foo.bar").unwrap());
+    assert_eq!(child1, rtr.name.lookup("foo.baz").unwrap());
+    assert_eq!(child2, rtr.name.lookup("foo.cat").unwrap());
+    assert_eq!(child3, rtr.name.lookup("foo.bar.dog").unwrap());
     assert_eq!(None, rtr.name.lookup("foo.bar.cat"));
 
     child0.bind(Parent::Root).write(&mut rtr);
     rtr = rtr.next_frame();
 
-    assert_eq!(&parent, rtr.name.lookup("foo").unwrap());
-    assert_eq!(&child0, rtr.name.lookup("bar").unwrap());
-    assert_eq!(&child1, rtr.name.lookup("foo.baz").unwrap());
-    assert_eq!(&child2, rtr.name.lookup("foo.cat").unwrap());
-    assert_eq!(&child3, rtr.name.lookup("bar.dog").unwrap());
+    assert_eq!(parent, rtr.name.lookup("foo").unwrap());
+    assert_eq!(child0, rtr.name.lookup("bar").unwrap());
+    assert_eq!(child1, rtr.name.lookup("foo.baz").unwrap());
+    assert_eq!(child2, rtr.name.lookup("foo.cat").unwrap());
+    assert_eq!(child3, rtr.name.lookup("bar.dog").unwrap());
 }
 
 #[test]
@@ -313,20 +313,20 @@ fn rename() {
         .write(&mut rtr);
     rtr = rtr.next_frame();
 
-    assert_eq!(&parent, rtr.name.lookup("foo").unwrap());
-    assert_eq!(&child0, rtr.name.lookup("foo.bar").unwrap());
-    assert_eq!(&child1, rtr.name.lookup("foo.baz").unwrap());
-    assert_eq!(&child2, rtr.name.lookup("foo.bar.cat").unwrap());
-    assert_eq!(&child3, rtr.name.lookup("foo.bar.dog").unwrap());
+    assert_eq!(parent, rtr.name.lookup("foo").unwrap());
+    assert_eq!(child0, rtr.name.lookup("foo.bar").unwrap());
+    assert_eq!(child1, rtr.name.lookup("foo.baz").unwrap());
+    assert_eq!(child2, rtr.name.lookup("foo.bar.cat").unwrap());
+    assert_eq!(child3, rtr.name.lookup("foo.bar.dog").unwrap());
 
     parent.bind(Name::new("bjz".to_string()).unwrap()).write(&mut rtr);
     rtr = rtr.next_frame();
 
-    assert_eq!(&parent, rtr.name.lookup("bjz").unwrap());
-    assert_eq!(&child0, rtr.name.lookup("bjz.bar").unwrap());
-    assert_eq!(&child1, rtr.name.lookup("bjz.baz").unwrap());
-    assert_eq!(&child2, rtr.name.lookup("bjz.bar.cat").unwrap());
-    assert_eq!(&child3, rtr.name.lookup("bjz.bar.dog").unwrap());
+    assert_eq!(parent, rtr.name.lookup("bjz").unwrap());
+    assert_eq!(child0, rtr.name.lookup("bjz.bar").unwrap());
+    assert_eq!(child1, rtr.name.lookup("bjz.baz").unwrap());
+    assert_eq!(child2, rtr.name.lookup("bjz.bar.cat").unwrap());
+    assert_eq!(child3, rtr.name.lookup("bjz.bar.dog").unwrap());
 
     assert_eq!(None, rtr.name.lookup("for"));
     assert_eq!(None, rtr.name.lookup("for.bar"));
@@ -368,11 +368,11 @@ fn get_names() {
         .write(&mut rtr);
     rtr = rtr.next_frame();
 
-    assert_eq!(&parent, rtr.name.lookup("foo").unwrap());
-    assert_eq!(&child0, rtr.name.lookup("foo.bar").unwrap());
-    assert_eq!(&child1, rtr.name.lookup("foo.baz").unwrap());
-    assert_eq!(&child2, rtr.name.lookup("foo.bar.cat").unwrap());
-    assert_eq!(&child3, rtr.name.lookup("foo.bar.dog").unwrap());
+    assert_eq!(parent, rtr.name.lookup("foo").unwrap());
+    assert_eq!(child0, rtr.name.lookup("foo.bar").unwrap());
+    assert_eq!(child1, rtr.name.lookup("foo.baz").unwrap());
+    assert_eq!(child2, rtr.name.lookup("foo.bar.cat").unwrap());
+    assert_eq!(child3, rtr.name.lookup("foo.bar.dog").unwrap());
 
     assert_eq!("foo", rtr.full_path(&parent).unwrap());
     assert_eq!("foo.bar", rtr.full_path(&child0).unwrap());

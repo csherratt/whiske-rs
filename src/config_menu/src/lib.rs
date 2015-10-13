@@ -74,7 +74,7 @@ fn write_config_menu(hm: &mut HashMap<Entity, Entity>,
 
     let selected = router.name.lookup("config_menu.selected")
           .and_then(|eid| {
-            match router.read(eid) {
+            match router.read(&eid) {
                 Some(&Config::String(ref s)) => Some(s.clone()),
                 _ => None
             }
@@ -113,10 +113,10 @@ fn write_config_menu(hm: &mut HashMap<Entity, Entity>,
     }
 }
 
-fn select(router: &Router) -> Option<(&Entity, &Entity)> {
+fn select(router: &Router) -> Option<(Entity, Entity)> {
     router.name.lookup("config_menu.selected")
         .and_then(|cfg| {
-            match router.read(cfg) {
+            match router.read(&cfg) {
                 Some(&Config::String(ref s)) => Some((cfg, s.clone())),
                 _ => None
             }
@@ -131,7 +131,7 @@ fn toggle(router: &mut Router) {
     let rtr = router.clone();
     select(&rtr)
         .and_then(|(_, eid)| {
-            match rtr.read(eid) {
+            match rtr.read(&eid) {
                 Some(&Config::Bool(ref s)) => Some((eid, !s)),
                 _ => None
             }
@@ -148,7 +148,7 @@ fn move_down(router: &mut Router) {
             let mut found = false;
             for (id, _) in router.config.current.iter() {
                 if found == true { return Some((name, id)); }
-                if eid == id { found = true; }
+                if eid == *id { found = true; }
             }
             None
         })
@@ -167,7 +167,7 @@ fn move_up(router: &mut Router) {
         .and_then(|(name, eid)| {
             let mut last = None;
             for (id, _) in router.config.current.iter() {
-                if id == eid { return last; }
+                if *id == eid { return last; }
                 last = Some((name, id));
             }
             None
@@ -187,7 +187,7 @@ fn value_add(router: &mut Router, v: f64) {
     let rtr = router.clone();
     select(&rtr)
         .and_then(|(_, eid)| {
-            match rtr.read(eid) {
+            match rtr.read(&eid) {
                 Some(&Config::Float(ref s)) => Some((eid, s + v * rate)),
                 _ => None
             }
@@ -226,7 +226,7 @@ fn take_selected_value(router: &mut Router) {
         let selected = rtr.config_string("config_menu.selected")
             .unwrap_or("config_menu.selected");
         let eid = rtr.lookup(selected).unwrap();
-        *buf = match rtr.read(eid) {
+        *buf = match rtr.read(&eid) {
             Some(&Config::String(ref s)) => s.clone(),
             Some(&Config::Float(f)) => format!("{}", f),
             Some(&Config::Bool(b)) => format!("{}", b),
@@ -245,7 +245,7 @@ fn write_value(router: &mut Router) {
     };
     let buffer = rtr.config_string("config_menu.buffer").unwrap_or("");
 
-    match rtr.read(selected_id) {
+    match rtr.read(&selected_id) {
         Some(&Config::String(_)) => Some(Config::String(buffer.to_string())),
         Some(&Config::Bool(_)) => Some(Config::Bool(buffer == "true")),
         Some(&Config::Float(_)) => match std::str::FromStr::from_str(buffer) {

@@ -8,26 +8,29 @@ extern crate entity;
 extern crate graphics;
 extern crate name;
 extern crate parent;
+extern crate renderer;
 
 use std::path::Path;
 use std::collections::HashMap;
 
 use entity::{Entity, WriteEntity};
 use graphics::{VertexBuffer, Vertex, Material, MaterialComponent};
+use graphics::{Geometry, GeometryData, Primative, VertexSubBuffer};
 use name::Name;
 use parent::Parent;
 
-pub fn load<T, P>(path: P, into: &mut T) -> Result<(), hairball::Error>
+pub fn load<T, P>(path: P, into: &mut T) -> Result<Vec<Entity>, hairball::Error>
     where P: AsRef<Path>,
           T: WriteEntity<VertexBuffer, Vec<Vertex>> +
              WriteEntity<VertexBuffer, Vec<u32>> +
              WriteEntity<Entity, Name> +
              WriteEntity<Entity, Parent> +
-             WriteEntity<Material, MaterialComponent<[f32; 4]>>
+             WriteEntity<Material, MaterialComponent<[f32; 4]>> +
+             WriteEntity<Geometry, GeometryData> +
+             WriteEntity<Entity, renderer::DrawBinding>
 {
     let reader = try!(hairball::Reader::read(path));
     let mapping = reader.into_mapping(|_| Entity::new());
-
 
     // Read names
     for i in 0..mapping.entities_len() {
@@ -36,6 +39,7 @@ pub fn load<T, P>(path: P, into: &mut T) -> Result<(), hairball::Error>
             match e {
                 Local(l) => {
                     if let Some(name) = l.name.map(|p| p.to_owned()).and_then(|n| Name::new(n)) {
+                        println!("{:?}", name);
                         into.write(*eid, name);
                     }
                     if let Some(parent) = l.parent.and_then(|i| mapping.entity(i as usize)) {
@@ -68,6 +72,11 @@ pub fn load<T, P>(path: P, into: &mut T) -> Result<(), hairball::Error>
         }
     }
 
+    // Write what is left from the buffer
+    for (_, v) in vbs {
+        v.write(into);
+    }
+
     if let Some(reader) = hairball_material::read(&mapping) {
         for (eid, component, value) in reader {
             use hairball_material::Value;
@@ -85,9 +94,31 @@ pub fn load<T, P>(path: P, into: &mut T) -> Result<(), hairball::Error>
         }
     }
 
-    for (_, v) in vbs {
-        v.write(into);
+    if let Some(reader) = hairball_geometry::read(&mapping) {
+        for (eid, geo) in reader {
+            let geo = GeometryData{
+                buffer: VertexSubBuffer{
+                    start: geo.start,
+                    length: geo.length,
+                    parent: *geo.mesh,
+                },
+                primative: Primative::Triangle
+            };
+            into.write(Geometry(*eid), geo);
+        }
     }
 
-    Ok(())
+    let mut out = Vec::new();
+    if let Some(reader) = hairball_draw_binding::read(&mapping) {
+        for (eid, db) in reader {
+            let db = renderer::DrawBinding(
+                Geometry(*db.geometry),
+                Material(*db.material)
+            );
+            into.write(*eid, db);
+            out.push(*eid);
+        }
+    }
+
+    Ok(out)
 }
