@@ -63,6 +63,10 @@ version = "*"
 path = "src/config_menu"
 version = "*"
 
+[dependencies.whiske-rs-hairball]
+path = "src/hairball"
+version = "*"
+
 [dev-dependencies]
 glfw="*"
 cgmath="*"

@@ -26,7 +26,7 @@ pub mod material;
 pub mod texture;
 pub mod vertex;
 
-pub const POSITION: &'static str =  "a_Position";
+pub const POSITION: &'static str = "a_Position";
 pub const NORMAL: &'static str = "a_Normal";
 pub const TEX0: &'static str = "a_Tex0";
 

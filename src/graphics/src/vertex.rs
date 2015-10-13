@@ -7,9 +7,20 @@ pub trait GetLength {
     fn length(&self) -> Length;
 }
 
-impl<T> GetLength for Vec<T> {
+impl GetLength for Vec<u32> {
     fn length(&self) -> Length {
         Length::Length(self.len() as u32)
+    }
+}
+
+impl GetLength for Vec<Vertex> {
+    fn length(&self) -> Length {
+        let min = self.iter().map(|x| x.len() as u32).min();
+        if let Some(x) = min {
+            Length::Length(x)
+        } else {
+            Length::Unsized
+        }
     }
 }
 
@@ -28,7 +39,6 @@ pub struct VertexBufferData {
 /// A Geometry entity
 #[derive(Copy, Clone, Hash, Debug, PartialEq, Eq)]
 pub struct Geometry(pub Entity);
-
 
 /// A handle for a vertex buffer
 #[derive(Copy, Clone, Hash, Debug, PartialEq, Eq)]
@@ -63,8 +73,15 @@ impl VertexBuffer {
         VertexBuffer(Entity::new(), Length::Unsized)
     }
 
+    /// Creates a VB from an entity
+    pub fn from_entity(e: Entity) -> VertexBuffer {
+        VertexBuffer(e, Length::Unsized)
+    }
+
     /// Binds an a component to the Entity
-    pub fn bind(mut self, data: Vertex) -> VertexBufferBinding<(Vertex,)> {
+    pub fn bind<T>(mut self, data: T) -> VertexBufferBinding<(T,)>
+        where T: GetLength
+    {
         self.1 = data.length();
         VertexBufferBinding::new(self, data)
     }
@@ -99,7 +116,8 @@ impl<T> VertexBufferBinding<T> {
     /// Bind an additional component to the VertexBufferBinding
     #[inline]
     pub fn bind_index<O>(mut self, data: Vec<u32>) -> VertexBufferBinding<O>
-        where T: Append<Vec<u32>, Output=O> {
+        where T: Append<Vec<u32>, Output=O>
+    {
         self.entity.1 = data.length();
         VertexBufferBinding {
             entity: self.entity,

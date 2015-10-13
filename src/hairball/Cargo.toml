@@ -1,0 +1,40 @@
+[package]
+name = "whiske-rs-hairball"
+version = "0.1.0"
+authors = ["Colin Sherratt <colin.sherratt@gmail.com>"]
+
+[lib]
+name = "hairball"
+
+[dependencies.whiske-rs-name]
+path = "../name/"
+
+[dependencies.whiske-rs-graphics]
+path = "../graphics/"
+
+[dependencies.whiske-rs-parent]
+path = "../parent/"
+
+[dependencies.entity]
+git = "https://github.com/whiske-rs/entity.git"
+
+[dependencies.hairball]
+git = "https://github.com/whiske-rs/hairball.git"
+
+[dependencies.hairball_mesh]
+git = "https://github.com/whiske-rs/hairball.git"
+
+[dependencies.hairball_mesh_index]
+git = "https://github.com/whiske-rs/hairball.git"
+
+[dependencies.hairball_material]
+git = "https://github.com/whiske-rs/hairball.git"
+
+[dependencies.hairball_geometry]
+git = "https://github.com/whiske-rs/hairball.git"
+
+[dependencies.hairball_draw_binding]
+git = "https://github.com/whiske-rs/hairball.git"
+
+[dependencies.obj_to_hairball]
+git = "https://github.com/whiske-rs/hairball.git"
